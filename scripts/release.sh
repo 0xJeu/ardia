@@ -142,6 +142,7 @@ if [ -f "$notes" ]; then
   grep -Eq '^date: *[0-9]{4}-[0-9]{2}-[0-9]{2} *$' <<< "$meta" && [ -n "$headline" ] \
     || die "$notes needs 'date: YYYY-MM-DD' and 'headline:' frontmatter"
   notes_channel="$(sed -n 's/^channel: *//p' <<< "$meta" | tr -d ' ')"
+  notes_video="$(sed -n 's/^video: *//p' <<< "$meta" | tr -d ' ')"
   [ "${notes_channel:-stable}" = "$channel" ] \
     || die "$notes says 'channel: ${notes_channel:-stable}' but this is a $channel release (nightly notes carry 'channel: nightly')"
 elif [ "$rc" = 1 ]; then
@@ -405,8 +406,17 @@ fi
 
 notarize_file() {
   echo "Notarizing $(basename "$1")"
-  xcrun notarytool submit "$1" "${notary_auth[@]}" --wait --timeout 1h | tee "$dist/notary-$(basename "$1").log"
-  grep -q "status: Accepted" "$dist/notary-$(basename "$1").log" || die "notarization failed"
+  local log="$dist/notary-$(basename "$1").log" id tries=0
+  xcrun notarytool submit "$1" "${notary_auth[@]}" | tee "$log" || true
+  id="$(awk '$1 == "id:" { print $2; exit }' "$log")"
+  [ -n "$id" ] || die "notarytool returned no submission id"
+  until xcrun notarytool wait "$id" "${notary_auth[@]}" --timeout 1h | tee -a "$log" | grep -q "status: Accepted"; do
+    grep -Eq "status: (Invalid|Rejected)" "$log" && die "notarization failed: xcrun notarytool log $id"
+    tries=$((tries + 1))
+    [ "$tries" -lt 5 ] || die "notarytool kept failing while waiting on $id"
+    echo "notarytool wait failed; asking again ($tries/5)"
+    sleep 20
+  done
 }
 if [ "$notarize" = 1 ]; then
   echo "==> Notarize app"
@@ -469,6 +479,7 @@ source_line="This build's source, with the engine's patches and build scripts: h
 [ -n "$helium_engine" ] && [ -n "$engine_release" ] && source_line="$source_line The engine's Helium and uBlock sources as built, and where Chromium's is: https://github.com/$repo/releases/download/$engine_tag/$(basename "$engine_source")"
 {
   notes_body
+  [ -n "${notes_video:-}" ] && printf '\n## Before and after\n\nThe fixes, filmed on the previous release and on this one: %s\n' "${notes_page%/release-notes}/release-videos/$notes_video.mp4"
   cat <<EOF
 
 ## Install

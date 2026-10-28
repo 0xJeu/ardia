@@ -29,7 +29,7 @@ NSArray<NSString *> *EngineInstanceKeys() {
 NSArray<NSString *> *EngineTestKeys() {
   return @[
     @"keychain", @"keychainHiddenReads", @"keychainFail", @"safeStorageAnswer", @"reauth", @"bluetoothChooser",
-    @"externalProtocolNoLaunch", @"mediaRouteProvider", @"systemMediaPermission", @"applyProfileGate", @"contextMenu",
+    @"externalProtocolNoLaunch", @"externalProtocolApp", @"mediaRouteProvider", @"systemMediaPermission", @"applyProfileGate", @"contextMenu",
   ];
 }
 
@@ -37,7 +37,7 @@ NSArray<NSString *> *AppTestKeys() {
   return @[
     @"pipSelfTest", @"pipHover", @"fakeFullScreenMs", @"shadersKeyWindow", @"peekStrict", @"importSecret", @"importDiaBundleId", @"importDiaWindows",
     @"cliInstallScript", @"legacySource", @"legacyCrashAfter", @"bangsUrl", @"onboarding", @"whatsNew", @"telemetry",
-    @"liveMock", @"calendarFixture",
+    @"liveMock", @"calendarFixture", @"appMenu", @"appDialog",
   ];
 }
 

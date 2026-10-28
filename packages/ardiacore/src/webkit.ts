@@ -41,5 +41,6 @@ export const endWebKitPrivateSession = (session: string) => call("webKit.endPriv
 export const webKitCookieStoreKey = (profile: string) => call("webKit.cookieStoreKey", { profile });
 export const importWebKitCookies = (profile: string, storeKey: string, cookies: PageCookie[]) =>
   call("webKit.importCookies", { profile, storeKey, cookies });
+export const clearWebKitSiteData = (profile: string, origin: string) => call("webKit.clearSiteData", { profile, origin });
 export const getPasskeyAccess = () => call("webKit.passkeyAccess");
 export const requestPasskeyAccess = () => call("webKit.requestPasskeyAccess");

@@ -1,7 +1,8 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
 const { useBrowser } = await import("../browser/store.ts");
-const { isPeekTab, peekSourceOf, peekTabId } = await import("./peek.ts");
+const { isPeekTab, otherSitePeekTabIds, peekSourceOf, peekTabId } = await import("./peek.ts");
+const { PRESETS } = await import("../onboarding/presets.ts");
 const { DEFAULT_SETTINGS, peekModifierOf, splitLinkModifierOf } = await import("../settings/settings.ts");
 const { stripPlan } = await import("../tabs/liveTabs.ts");
 const { viewTabIds } = await import("../browser/model.ts");
@@ -209,6 +210,30 @@ test("the split link setting: ⌥⇧-click by default or ⌥-click, synced, neve
   assert.equal(splitLinkModifierOf({}), "altShift");
   S().hydrate({ profiles: { default: PERSONAL }, profileOrder: ["default"], settings: { splitLinkModifier: "alt" } });
   assert.deepEqual(keys(), ["shift", "alt"]);
+});
+
+test("links to other sites peek only in Top Apps, pinned rows and pinned groups, once the setting is on", () => {
+  const { w, a, b, c } = windowWithTabs();
+  const d = S().newTab(w, { url: "https://d.example/", background: true });
+  assert.equal(DEFAULT_SETTINGS.peekLinksToOtherSites, false);
+  assert.ok(SYNCED_SETTINGS.includes("peekLinksToOtherSites"));
+  S().togglePin(a);
+  S().placeTabs([b], { pinned: true, row: true });
+  assert.deepEqual(otherSitePeekTabIds(S()), []);
+  S().updateSettings({ peekLinksToOtherSites: true });
+  assert.deepEqual(otherSitePeekTabIds(S()), [a, b].sort());
+  const group = S().groupTabs([c], { pinned: true, name: "Work" });
+  assert.deepEqual(otherSitePeekTabIds(S()), [a, b, ...S().groups[group].tabIds].sort());
+  assert.ok(!otherSitePeekTabIds(S()).includes(d));
+  S().togglePin(a);
+  assert.ok(!otherSitePeekTabIds(S()).includes(a));
+  S().updateSettings({ peekLinksToOtherSites: false });
+  assert.deepEqual(otherSitePeekTabIds(S()), []);
+});
+
+test("Arc and Zen setups peek links to other sites; every other setup leaves it off", () => {
+  for (const [preset, settings] of Object.entries(PRESETS))
+    assert.equal(settings.peekLinksToOtherSites, preset === "arc" || preset === "zen", preset);
 });
 
 test("another window taking a shared pin's page closes the peek opened from it", () => {

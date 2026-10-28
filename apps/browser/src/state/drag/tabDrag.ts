@@ -167,6 +167,11 @@ export function setTargetResolver(resolver: typeof resolveTarget) {
   resolveTarget = resolver;
 }
 
+let dropOnBookmarks: ((tabIds: string[], windowId: string, x: number, y: number) => boolean) | null = null;
+export function setBookmarksDrop(drop: typeof dropOnBookmarks) {
+  dropOnBookmarks = drop;
+}
+
 export function setOnPage(onPage: boolean) {
   if (useTabDrag.getState().onPage === onPage) return;
   useTabDrag.setState({ onPage });
@@ -199,6 +204,10 @@ export function endTabDrag(): boolean {
   picture = null;
   const shown = begun;
   sentShape = "hidden";
+  if (!outside && windowId && tabIds.length && dropOnBookmarks?.(tabIds, windowId, x, y)) {
+    if (shown) dragPreview.end();
+    return true;
+  }
   if (target && tabId) {
     dragPreview.end();
     dropTabIntoSplit(tabId, target.tabId, target.side);

@@ -26,7 +26,7 @@ export function summarize(doc: SyncDoc): Pick<SyncUi, "devices" | "remoteTabs" |
   }
   const linked = new Set(Object.values(doc.profiles).map((l) => l.syncId));
   const remoteProfiles = [...visible(app, "prof:")]
-    .filter(([k]) => !linked.has(k.slice(5)))
+    .filter(([k]) => !doc.joining && !linked.has(k.slice(5)))
     .map(([k, v]): RemoteProfile => {
       const syncId = k.slice(5);
       const record = v as ProfileRecord;

@@ -69,19 +69,8 @@ export function samePage(a: string, b: string): boolean {
 
 export const awayFromPin = (t: Pick<Tab, "url" | "pinnedUrl">) => !!t.pinnedUrl && !!t.url && !samePage(t.url, t.pinnedUrl);
 
-function isSiteMuted(s: Pick<BrowserState, "settings" | "privateSiteMutes">, tab: Pick<Tab, "windowId" | "profileId">, host: string): boolean {
-  const own = isIncognitoProfile(tab.profileId) ? s.privateSiteMutes[tab.windowId]?.[host] : undefined;
-  return own ?? (s.settings.mutedSites ?? []).includes(host);
-}
-
 export function onUrlChange(s: BrowserState, tab: Tab, url: string): Partial<Tab> {
   const patch: Partial<Tab> = {};
-  const before = hostOf(tab.url);
-  const after = hostOf(url);
-  if (before !== after) {
-    if (isSiteMuted(s, tab, after)) patch.muted = true;
-    else if (isSiteMuted(s, tab, before)) patch.muted = false;
-  }
   if (!tab.pinnedUrl && url && inPinnedContainer(s, tab.id)) patch.pinnedUrl = url;
   return patch;
 }
@@ -195,13 +184,7 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
     const tab = s.tabs[tabId];
     if (!tab) return;
     const host = hostOf(tab.url);
-    if (!host) return get().setMuted([tabId], muted);
-    get().setMuted(
-      Object.values(s.tabs)
-        .filter((t) => t.profileId === tab.profileId && hostOf(t.url) === host)
-        .map((t) => t.id),
-      muted,
-    );
+    if (!host) return;
     if (isIncognitoProfile(tab.profileId)) {
       const own = { ...s.privateSiteMutes[tab.windowId], [host]: muted };
       return set({ privateSiteMutes: { ...get().privateSiteMutes, [tab.windowId]: own } });

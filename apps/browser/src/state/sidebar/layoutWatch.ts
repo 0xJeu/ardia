@@ -1,5 +1,6 @@
 import { writeDocument } from "../../platform/documents";
 import { sidebarEntries } from "./entries";
+import { shownPinnedEntries } from "./pinnedFold";
 import { rowIds, rowView } from "./sidebarUi";
 import { useBrowser } from "../browser/store";
 
@@ -36,7 +37,8 @@ function missingRows(): string[] {
   for (const windowId of s.windowOrder) {
     const w = s.windows[windowId];
     if (!w || !w.sidebarOpen) continue;
-    const { tiles, pinned, list } = sidebarEntries(s, windowId, w.profileId);
+    const { tiles, pinned: all, list } = sidebarEntries(s, windowId, w.profileId);
+    const pinned = shownPinnedEntries(s, windowId, w.profileId, all);
     const ids = [...tiles, ...[...pinned, ...list].map((e) => (e.startsWith("s:") ? e : e.slice(2)))];
     for (const id of ids) if (!rowView(windowId, id)) missing.push(`${windowId}|${id}`);
   }

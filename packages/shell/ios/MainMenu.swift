@@ -264,7 +264,7 @@ enum MainMenu {
       .separator(),
       cmd("Rename…", "renameTab"),
       cmd("Change Icon…", "changeTabIcon"),
-      cmd("Mute Site", "toggleMute"),
+      cmd("Mute Tab", "toggleMute"),
     ])
 
     bookmarks = top("Bookmarks", [

@@ -1,4 +1,4 @@
-import { setPeekModifier, setSplitLinkModifier } from "../../platform/pageOptions";
+import { setPeekModifier, setPeekOtherSiteTabs, setSplitLinkModifier } from "../../platform/pageOptions";
 import { hapticTick } from "../../platform/haptics";
 import { webviews } from "../../platform/webviews";
 import { useBrowser, type BrowserState } from "../browser/store";
@@ -6,7 +6,7 @@ import { activeTabId } from "../browser/model";
 import { peekModifierOf, splitLinkModifierOf, type PeekModifier, type SplitLinkModifier } from "../settings/settings";
 import { MAX_SPLIT_PANES, splitOf } from "../splits/splits";
 import { openSplitPane, showToast } from "../splits/actions";
-import { isPeekTab, shownPageId } from "./peek";
+import { isPeekTab, otherSitePeekTabIds, shownPageId } from "./peek";
 
 const store = () => useBrowser.getState();
 const closers = new Map<string, () => void>();
@@ -97,11 +97,22 @@ export function startPeeks() {
   started = true;
   let sent: PeekModifier | null = null;
   let sentSplit: SplitLinkModifier | null = null;
+  let sentSites: string | null = null;
+  let read: { tabs: BrowserState["tabs"]; groups: BrowserState["groups"]; on: boolean } | null = null;
   const sync = () => {
-    const modifier = peekModifierOf(store().settings);
+    const s = store();
+    const modifier = peekModifierOf(s.settings);
     if (modifier !== sent) void setPeekModifier((sent = modifier));
-    const split = splitLinkModifierOf(store().settings);
+    const split = splitLinkModifierOf(s.settings);
     if (split !== sentSplit) void setSplitLinkModifier((sentSplit = split));
+    const on = s.settings.peekLinksToOtherSites;
+    if (read && read.tabs === s.tabs && read.groups === s.groups && read.on === on) return;
+    read = { tabs: s.tabs, groups: s.groups, on };
+    const ids = otherSitePeekTabIds(s);
+    const key = ids.join("\n");
+    if (key === sentSites) return;
+    sentSites = key;
+    void setPeekOtherSiteTabs(ids);
   };
   sync();
   useBrowser.subscribe(sync);

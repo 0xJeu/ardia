@@ -1,6 +1,6 @@
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import { ScrollView, StyleSheet, View } from "react-native";
-import { WindowDragRegion } from "../ui";
+import { ContextMenuArea, WindowDragRegion } from "../ui";
 import { layout } from "../ui/theme";
 import { useSettings, useWindowId, useWindowProfileId } from "../../state/browser/hooks";
 import { useHasDownloads, useNoTiles } from "../../state/sidebar/hooks";
@@ -21,6 +21,7 @@ import { PinFieldZone, PinSlotZone } from "./PinnedGrid";
 import { ResizeHandle } from "./ResizeHandle";
 import { SIDEBAR_FIELD, SIDEBAR_FOOTER_DOWNLOADS, SIDEBAR_HEADER_WITH_FIELD } from "./geometry";
 import { closeFolderPanel } from "../../state/sidebar/tileFolderUi";
+import { openSidebarMenu } from "../../state/sidebar/menus";
 import { GLOW_ROOM, ROW_PITCH, type SidebarGeometry } from "./pageLayout";
 import { SidebarPage } from "./SidebarPage";
 import { SidebarRowLookContext, useSidebarRowLookSource } from "./rowLook";
@@ -105,6 +106,7 @@ export function Sidebar({ width }: { width: number }) {
 
             {footer ? (
               <View style={{ position: "absolute", left: 0, right: 0, bottom: 0, height: footer }}>
+                <ContextMenuArea style={StyleSheet.absoluteFill} onContextMenu={() => void openSidebarMenu(windowId)} />
                 {dots ? <ProfileDots windowId={windowId} width={width} besideDownloads={footerDownloads} /> : null}
                 {footerDownloads ? (
                   <View style={{ position: "absolute", left: layout.sidebarInset, bottom: SIDEBAR_FOOTER_DOWNLOADS.bottom }}>
@@ -115,7 +117,9 @@ export function Sidebar({ width }: { width: number }) {
             ) : null}
 
             <View style={{ height: header }}>
-              <WindowDragRegion style={StyleSheet.absoluteFill} />
+              <ContextMenuArea style={StyleSheet.absoluteFill} onContextMenu={() => void openSidebarMenu(windowId)}>
+                <WindowDragRegion style={StyleSheet.absoluteFill} />
+              </ContextMenuArea>
               {addressBar ? (
                 <>
                   <SidebarHeaderTools width={width} />

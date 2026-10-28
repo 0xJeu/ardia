@@ -13,6 +13,7 @@ import { tabTitle } from "./actions";
 import { groupEntries, keptEntry, sidebarEntries } from "./entries";
 import { groupTabIds } from "./groupPanelRows";
 import { capture, type Capture } from "./listCapture";
+import { pinnedCollapsed, pinnedKept } from "./pinnedFold";
 import type { Hover } from "./sidebarUi";
 
 export const useIsInSplit = (tabId: string) => useBrowser((s) => !!splitOf(s, tabId));
@@ -40,6 +41,10 @@ export const useCapturedSidebarEntries = (windowId: string, profileId: string, c
   });
 
 export const useKeptEntry = (windowId: string, profileId: string, entries: string[]) => useBrowser((s) => keptEntry(s, windowId, profileId, entries));
+
+export const usePinnedCollapsed = (profileId: string) => useBrowser((s) => pinnedCollapsed(s, profileId));
+
+export const usePinnedKept = (windowId: string, profileId: string, entries: string[]) => useBrowser((s) => pinnedKept(s, windowId, profileId, entries));
 
 export const useGroupFirstTabIcon = (groupId: string) =>
   useBrowser(

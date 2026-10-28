@@ -15,7 +15,7 @@ import { handOff, takeHandOff, wantsPage } from "../../state/tabs/tabPages";
 import { noteDiscarded, noteGone, noteReady } from "../../state/tabs/tabLifecycle";
 import { clearEngineOffer, followSiteChoice, noteWebKitPage, offerWebKit, persistEngine } from "../../state/engines/actions";
 import { noteIssued, takeStartedNavigation, webviewRef, webviews } from "../../state/tabs/webviewHandles";
-import { currentTab } from "../../state/browser/current";
+import { currentTab, isTabSilenced } from "../../state/browser/current";
 import { closeTabNow, faviconChanged, navigated, updateLive, updateTab } from "../../state/tabs/actions";
 import { setFind } from "../../state/windows/actions";
 import { activateFocusedPane, currentTabEngine, downloadNavigated, useTabEngine } from "../../state/windows/card";
@@ -24,6 +24,7 @@ import { shallowEqual, useBrowserWhile, useProfilesValue, useTabValue } from "..
 import { engineProfile, isIncognitoProfile, navigationTo } from "../../state/browser/model";
 import type { Tab } from "../../state/browser/types";
 import { dismissPermissions } from "../../state/site/permissions";
+import { zoomChangedByUser } from "../../state/site/zoomBubble";
 import { markTabReady, patchPage, pageOf, popoverOf, setPopover } from "../../state/tabs/pageState";
 import { closeFolderPanelIn } from "../../state/sidebar/tileFolderUi";
 import { answerExternalApp, shouldPromptForPopups, showAutofillPrompt, showPasswordPrompt } from "../site/Prompts";
@@ -132,7 +133,7 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
         markTabReady(tabId);
         noteTabReady(tabId);
         noteReady(tabId);
-        if (tab()?.muted) void webviews.get(tabId)?.setMuted(true);
+        void webviews.get(tabId)?.setMuted(isTabSilenced(tabId));
       }}
       onNavigationChange={({ url: reported, title, canGoBack, canGoForward, isLoading, themeColor, themeColorSource, initialDocumentAccessed, committedInitial, committedUrl }) => {
         adoptIconPage(tabId);
@@ -184,7 +185,10 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
         downloadNavigated(tabId, committedUrl, skipped);
       }}
       onProgress={(progress) => !prewarmOnly() && setPageProgress(tabId, progress)}
-      onZoom={({ zoom }) => updateTab(tabId, { zoom })}
+      onZoom={({ zoom, user }) => {
+        updateTab(tabId, { zoom });
+        if (user) zoomChangedByUser(tabId);
+      }}
       onFindResult={({ count, active }) => setFind(tabId, { count, active })}
       onFavicon={(favicon) => {
         if (!favicon || !tab()) return;
@@ -194,7 +198,7 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
       }}
       onMedia={({ playing, muted }) => {
         updateLive(tabId, { playingAudio: playing });
-        if (tab()?.muted && !muted) void webviews.get(tabId)?.setMuted(true);
+        if (!muted && isTabSilenced(tabId)) void webviews.get(tabId)?.setMuted(true);
       }}
       onNowPlaying={(state) => setNowPlaying(tabId, state)}
       onPictureInPicture={(state) => setPictureInPictureState(tabId, state)}

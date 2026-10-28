@@ -7,6 +7,7 @@ import { updateSettings } from "../../../state/settings/actions";
 import type { Settings } from "../../../state/settings/settings";
 import { Group, Row, SectionHeader } from "../Form";
 import { PictureChoice } from "../PictureChoice";
+import { BookmarksBarSection } from "./BookmarksBarSection";
 import { modePreview } from "../tokens";
 import { useSettingsColors } from "../useSettingsColors";
 import { APP_ICON_SIZE, appIconChoices } from "../../../state/settings/paneData";
@@ -39,6 +40,7 @@ export function AppearancePane() {
         </Row>
       </Group>
       <AddressBarPicker />
+      <BookmarksBarSection />
       <SelectedTabGlowPicker />
       <ScrollBarsPicker />
       <AppIconPicker />

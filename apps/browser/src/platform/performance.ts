@@ -3,6 +3,8 @@ export {
   systemState,
   onSystemState,
   setBatterySaver,
+  setMemorySaver,
+  isKeepActiveSiteValid,
   trimEngineMemory,
   inputIdleSeconds,
   beginTracing,
@@ -11,4 +13,5 @@ export {
   openTaskManager,
   type EngineTask,
   type SystemState,
+  type MemorySaverMode,
 } from "@ardia/ardiacore";

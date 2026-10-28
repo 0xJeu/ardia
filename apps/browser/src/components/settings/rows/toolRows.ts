@@ -134,7 +134,31 @@ export const toolRows: Pick<Record<SettingsPane, SettingSection[]>, "shortcuts" 
         bookmarksImport: { title: "Show the Import bookmarks button", description: "On an empty bookmarks bar.", keywords: ["bookmarks bar"] },
       },
     },
-    { section: "Performance", rows: { batterySaver: { title: "Battery Saver", keywords: ["energy", "low power mode", "performance", "power"] } } },
+    {
+      section: "Performance",
+      rows: {
+        memorySaver: {
+          title: "Memory Saver",
+          description: "Ardia frees up memory from inactive tabs. This gives active tabs and other apps more computer resources and keeps Ardia fast. Your inactive tabs automatically become active again when you go back to them.",
+          keywords: ["sleep", "sleeping tabs", "tab sleeping", "discard", "hibernate", "memory", "ram", "inactive tabs", "unload", "suspend", "performance"],
+        },
+        memorySaverMode: {
+          title: "Memory savings",
+          keywords: ["sleep", "sleeping tabs", "moderate", "balanced", "maximum", "memory", "discard", "hibernate", "inactive tabs"],
+        },
+        batterySaver: { title: "Battery Saver", keywords: ["energy", "energy saver", "low power mode", "performance", "power"] },
+      },
+    },
+    {
+      section: "Always keep these sites active",
+      rows: {
+        keepActiveSites: {
+          title: "Always keep these sites active",
+          description: "Sites you add will always stay active and memory won't be freed up from them.",
+          keywords: ["sleep", "never sleep", "keep awake", "exceptions", "discard", "hibernate", "memory saver", "memory"],
+        },
+      },
+    },
     {
       section: "Data",
       rows: {

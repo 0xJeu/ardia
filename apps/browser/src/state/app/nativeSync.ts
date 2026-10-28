@@ -18,6 +18,7 @@ import type { Bookmarks, BookmarkNode } from "../browser/types";
 import { isUtilityWindowId } from "../settings/settingsWindows";
 import { openingLightsCenter } from "../windows/layout";
 import { isInternalTab } from "../pages/urls";
+import { muteState, muteTitle } from "../tabs/mute";
 import { sidebarMenuState } from "../sidebar/commands";
 import { openWindow as createWindow } from "../browser/actions";
 import { createWindowSync, type WindowPort } from "../windows/windowSync";
@@ -212,7 +213,7 @@ export function menuState(s: BrowserState): MenuState {
   if (tab?.pinned) titles.togglePin = togglePinTitle(tab);
   if (isPinnedRow(tab)) titles["togglePin:tile"] = "Move to Top Apps";
   else disabled.push("togglePin:tile");
-  if (page?.muted) titles.toggleMute = "Unmute Site";
+  if (page) titles.toggleMute = muteTitle(muteState(s, page));
   if (page && tabEngine(s, page.id) === "webkit") titles.togglePageEngine = "Open Page in Chromium";
   if (!canSwitchEngine(page?.url)) disabled.push("togglePageEngine");
   if (page?.url && isBookmarked(s.bookmarks, bookmarkProfile, page.url)) {

@@ -5,6 +5,8 @@ import { hex, layout, useTheme } from "../ui/theme";
 import { useIsActiveTab, usePageProfileId, useTab, useWindow, useWindowId } from "../../state/browser/hooks";
 import { returnToPinnedUrl } from "../../state/pins/actions";
 import { useSplitRowKey } from "../../state/sidebar/hooks";
+import { useMuteState } from "../../state/tabs/hooks";
+import { muteTitle } from "../../state/tabs/mute";
 import { HoverSlot } from "../ui/HoverSlot";
 import { ActivitySpinner, Button, ContextMenuArea, FadeLabel, font, ink, MouseArea, OutsidePressArea, radius, Surface, Symbol, useHover } from "../ui";
 import { isPinnedRow } from "../../state/browser/model";
@@ -18,7 +20,6 @@ import { middleClickTab } from "../../state/sidebar/clearTabs";
 import { openTabMenu } from "../../state/sidebar/menus";
 import { ACTIVE, ICON_MARKS, LOADING, PLAYING, SELECTED, useRowState } from "../../state/sidebar/rowState";
 import { registerRow, useSidebarUi } from "../../state/sidebar/sidebarUi";
-import { PressFeedback, usePressMotion } from "./PressFeedback";
 import { TabIcon } from "./TabIcon";
 import { TabBadges } from "../media/TabBadges";
 import { SELECTED_ROW_SHADOW_OFFSET, useSidebarTokens } from "./tokens";
@@ -55,11 +56,12 @@ export const TabRow = memo(function TabRow({ tabId, onto = false, shift = null }
   const active = !!(flags & ACTIVE);
   const selected = !!(flags & SELECTED);
   const playingAudio = !!(flags & PLAYING);
+  const mute = useMuteState(tabId);
   const loading = !!(flags & LOADING);
   const renaming = useSidebarUi((u) => u.renaming?.kind === "tab" && u.renaming.id === tabId);
   const { hovered, hoverProps } = useRowHover(windowId, renaming ? null : { kind: "tab", id: tabId });
   const [pressed, setPressed] = useState(false);
-  const [moved, movedRef] = useShift(shift, useCallback((v: View | null) => registerRow(windowId, tabId, v), [windowId, tabId]), usePressMotion(pressed));
+  const [moved, movedRef] = useShift(shift, useCallback((v: View | null) => registerRow(windowId, tabId, v), [windowId, tabId]));
   const backToPin = useHover();
   const closeControl = useTabCloseControlWhile(tabId, hovered && !renaming);
   const { backToPinHint } = useSidebarRowLook();
@@ -126,9 +128,9 @@ export const TabRow = memo(function TabRow({ tabId, onto = false, shift = null }
                   <TabBadges tabId={tab.id} />
                 </View>
               )}
-              {(playingAudio || tab.muted) && (
-                <Pressable onPress={() => toggleMute(tab.id)} style={{ marginLeft: 6 }} tooltip={tab.muted ? "Unmute Site" : "Mute Site"}>
-                  <Symbol name={tab.muted ? "speaker.slash" : "speaker.wave.2"} size={12} color={theme.textTab} style={{ width: 18, height: 16 }} />
+              {(playingAudio || mute) && (
+                <Pressable onPress={() => toggleMute(tab.id)} style={{ marginLeft: 6 }} tooltip={muteTitle(mute)}>
+                  <Symbol name={mute ? "speaker.slash" : "speaker.wave.2"} size={12} color={theme.textTab} style={{ width: 18, height: 16 }} />
                 </Pressable>
               )}
               {renaming ? (
@@ -264,21 +266,19 @@ function SplitPane({ tabId, windowId }: { tabId: string; windowId: string }) {
       <ContextMenuArea onContextMenu={() => void openTabMenu(windowId, tab)}>
         <Pressable onPress={(e) => clickTab(windowId, tabId, modifiersOf(e))}>
           {({ pressed }) => (
-            <PressFeedback pressed={pressed}>
-              <View
-                style={{
-                  height: layout.rowHeight - 6,
-                  borderRadius: radius.button,
-                  flexDirection: "row",
-                  alignItems: "center",
-                  paddingLeft: 6,
-                  backgroundColor: active ? undefined : pressed ? theme.tabPressed : hovered ? theme.rowHover : undefined,
-                }}
-              >
-                <TabIcon tabId={tab.id} url={tab.url} favicon={tab.favicon} icon={tab.customIcon} size={14} />
-                <FadeLabel text={tabTitle(tab)} fontSize={font.small.fontSize} color={active ? theme.tabSelectedText : theme.textTab} style={{ flex: 1, height: 16, marginLeft: 5 }} />
-              </View>
-            </PressFeedback>
+            <View
+              style={{
+                height: layout.rowHeight - 6,
+                borderRadius: radius.button,
+                flexDirection: "row",
+                alignItems: "center",
+                paddingLeft: 6,
+                backgroundColor: active ? undefined : pressed ? theme.tabPressed : hovered ? theme.rowHover : undefined,
+              }}
+            >
+              <TabIcon tabId={tab.id} url={tab.url} favicon={tab.favicon} icon={tab.customIcon} size={14} />
+              <FadeLabel text={tabTitle(tab)} fontSize={font.small.fontSize} color={active ? theme.tabSelectedText : theme.textTab} style={{ flex: 1, height: 16, marginLeft: 5 }} />
+            </View>
           )}
         </Pressable>
       </ContextMenuArea>

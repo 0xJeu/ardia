@@ -17,13 +17,14 @@ import {
   usePopoverPresence,
   useTheme,
 } from "../ui";
-import { copyText, fileExists, fileIcon, moveToTrash, openFile, revealFile, showMenu, type MenuItem } from "../../state/app/system";
+import { fileExists, fileIcon, openFile, revealFile } from "../../state/app/system";
+import { downloadMenu } from "../../state/downloads/downloadMenu";
 import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { Animated, Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { useShallow } from "zustand/react/shallow";
 import { useDownloads, useSidebarOpen, useWindowId, useWindowUi } from "../../state/browser/hooks";
-import { clearDownloads, removeDownload, setDownloadsOpen } from "../../state/windows/actions";
-import { onDownloadsChanged, opensWhenDone, toggleOpenWhenDone, watchNewDownloads, watchOpenWhenDone } from "../../state/windows/downloadWatch";
+import { clearDownloads, setDownloadsOpen } from "../../state/windows/actions";
+import { onDownloadsChanged, watchNewDownloads, watchOpenWhenDone } from "../../state/windows/downloadWatch";
 import { useDownload } from "../../state/windows/hooks";
 import { useAddressBarInSidebar, useTabLayout, useToolbarLightsCenter } from "../../state/windows/layout";
 import { SIDEBAR_FOOTER_DOWNLOADS } from "../sidebar/geometry";
@@ -38,54 +39,12 @@ import { useDownloadsPlacement } from "./useDownloadsPlacement";
 import { DOWNLOADS_LIST as L, downloadsRowFill, FILE_ICON_GLYPH_SHARE, MAGNET, useDownloadsColors } from "./tokens";
 
 export { awaitsKeep, downloadStatus } from "./downloadStatus";
+export { downloadMenu } from "../../state/downloads/downloadMenu";
 export { DownloadsButton } from "./DownloadsButton";
 
 const g = globalThis as { __acDownloadsWatch?: () => void };
 g.__acDownloadsWatch?.();
 g.__acDownloadsWatch = watchOpenWhenDone((path) => void openFile(path));
-
-export async function downloadMenu(d: Download, windowId: string) {
-  const exists = d.state === "finished" && fileExists(d.path);
-  const items: MenuItem[] = awaitsKeep(d)
-    ? [
-        { id: "keep", title: "Keep" },
-        { id: "cancel", title: "Discard" },
-      ]
-    : d.state === "downloading"
-      ? [
-          { id: "whenDone", title: "Open When Done", checked: opensWhenDone(d.id) },
-          { id: d.paused ? "resume" : "pause", title: d.paused ? "Resume" : "Pause" },
-          { id: "cancel", title: "Cancel" },
-        ]
-      : [
-          { id: "open", title: "Open", enabled: exists },
-          { id: "reveal", title: "Show in Finder", enabled: exists },
-        ];
-  items.push(
-    { separator: true },
-    { id: "copy", title: "Copy Download Link" },
-    { id: "page", title: "Show All Downloads" },
-    { separator: true },
-    ...(exists ? [{ id: "trash", title: "Move to Trash" }] : []),
-    { id: "remove", title: "Remove from List", enabled: d.state !== "downloading" },
-  );
-  const choice = await showMenu(items);
-  if (choice === "whenDone") toggleOpenWhenDone(d.id);
-  if (choice === "pause") void pauseDownload(d.id);
-  if (choice === "resume") void resumeDownload(d.id);
-  if (choice === "keep") void keepDownload(d.id);
-  if (choice === "cancel") void cancelDownload(d.id);
-  if (choice === "open") void openFile(d.path);
-  if (choice === "reveal") void revealFile(d.path);
-  if (choice === "copy") copyText(d.url);
-  if (choice === "page") openInternalPage("downloads", windowId);
-  if (choice === "trash") void trashDownload(d);
-  if (choice === "remove") removeDownload(d.id);
-}
-
-async function trashDownload(d: Download) {
-  if (await moveToTrash(d.path)) removeDownload(d.id);
-}
 
 const iconCache = new Map<string, string | null>();
 export const FileIcon = memo(function FileIcon({ path, size = 28 }: { path: string; size?: number }) {

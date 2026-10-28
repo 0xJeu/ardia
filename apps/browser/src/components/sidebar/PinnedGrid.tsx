@@ -7,6 +7,7 @@ import { useAddressBarInSidebar } from "../../state/windows/layout";
 import { listTopGap } from "./geometry";
 import { useIsActiveTab, useSettings, useTab, useTabLive, useWindowId } from "../../state/browser/hooks";
 import { useIsSelected } from "../../state/pins/hooks";
+import { useMuteState } from "../../state/tabs/hooks";
 import { NextMeetingBadge } from "../live/NextMeetingBadge";
 import { clickTab, returnShownTabToPinnedUrl } from "../../state/sidebar/actions";
 import { cellKey, PIN_SLOT } from "./dragModel";
@@ -145,6 +146,7 @@ const PinnedTile = memo(function PinnedTile({ tabId, width, sliding, x, y }: { t
   const active = useIsActiveTab(tabId);
   const selected = useIsSelected(windowId, tabId);
   const playing = useTabLive(tabId, (l) => l.playingAudio);
+  const mute = useMuteState(tabId);
   const { hovered, hoverProps } = useRowHover(windowId, { kind: "tab", id: tabId });
   const { wrapper, handle, dragging } = useDragItem(`t:${tabId}`, { kind: "tile", tabIds: [tabId], section: "tiles" });
   const target = useFolderTarget(`t:${tabId}`);
@@ -177,9 +179,9 @@ const PinnedTile = memo(function PinnedTile({ tabId, width, sliding, x, y }: { t
           </ContextMenuArea>
         </MouseArea>
         <NextMeetingBadge tabId={tabId} />
-        {playing || tab.muted ? (
+        {playing || mute ? (
           <View pointerEvents="none" style={{ position: "absolute", bottom: 3, right: 4 }}>
-            <Symbol name={tab.muted ? "speaker.slash.fill" : "speaker.wave.2.fill"} size={8} color={theme.textSecondary} style={{ width: 12, height: 10 }} />
+            <Symbol name={mute ? "speaker.slash.fill" : "speaker.wave.2.fill"} size={8} color={theme.textSecondary} style={{ width: 12, height: 10 }} />
           </View>
         ) : null}
       </View>

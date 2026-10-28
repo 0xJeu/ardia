@@ -100,6 +100,10 @@ public class WebKitModule: Module {
       let cookies = args.list("cookies").compactMap { $0 as? [String: Any] }
       WebKitHub.shared.importCookies(cookies, profile: args.profile, storeKey: args.text("storeKey")) { reply.ok($0) }
     },
+    "clearSiteData": { args, reply in
+      guard let host = URL(string: args.text("origin"))?.host, !host.isEmpty else { return reply.ok(["cookies": false, "storage": false]) }
+      WebKitHub.shared.clearSiteData(profile: args.profile, host: host) { reply.ok($0) }
+    },
     "passkeyAccess": { _, reply in reply.ok(WebKitPasskeys.access()) },
     "requestPasskeyAccess": { _, reply in WebKitPasskeys.requestAccess { reply.ok($0) } },
   ].merging(LaunchConfig.shared.testInstance ? testInstanceCalls : [:]) { call, _ in call })

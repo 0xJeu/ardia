@@ -170,6 +170,20 @@ public class ShellModule: Module {
       return [:]
       #endif
     }.runOnQueue(.main)
+    AsyncFunction("devWindowMoveProbe") { (id: String, probe: [String: Double], promise: Promise) in
+      #if DEBUG
+      guard let window = WindowManager.shared.windows[id] else { return promise.resolve(["error": "no window \(id)"]) }
+      let count = Int(probe["steps"] ?? 60), dx = CGFloat(probe["dx"] ?? 3), dy = CGFloat(probe["dy"] ?? 0)
+      let interval = (probe["intervalMs"] ?? 8) / 1000
+      if let x = probe["x"], let top = probe["top"] {
+        WindowMoveProbe.drag(window, x: CGFloat(x), top: CGFloat(top), count: count, dx: dx, dy: dy, interval: interval) { promise.resolve($0) }
+      } else {
+        WindowMoveProbe.steps(window, count: count, dx: dx, dy: dy, interval: interval) { promise.resolve($0) }
+      }
+      #else
+      promise.resolve(["error": "DEV builds only"])
+      #endif
+    }.runOnQueue(.main)
     AsyncFunction("dragPreviewEnd") { (windowId: String?, frame: [Double]?) in
       DragPreview.shared.end(windowId: windowId, fallback: frame.flatMap { $0.count == 4 ? NSRect(x: $0[0], y: $0[1], width: $0[2], height: $0[3]) : nil })
     }.runOnQueue(.main)
@@ -196,6 +210,12 @@ public class ShellModule: Module {
     AsyncFunction("replyToTerminate") { (ok: Bool) in WindowManager.shared.replyToTerminate(ok) }.runOnQueue(.main)
 
     AsyncFunction("confirm") { (options: [String: Any], promise: Promise) in
+      if let file = MenuChoice.testFile(flag: "appDialog", name: "dialog.json"),
+         let answer = MenuChoice.testAnswer(dumping: options.merging(["kind": "confirm"]) { $1 }, to: file) {
+        let words = Set(answer.split(separator: ",").map { $0.trimmingCharacters(in: .whitespaces) })
+        promise.resolve(["confirmed": words.contains("confirm"), "suppressed": words.contains("suppress")])
+        return
+      }
       let alert = ShellModule.alert(options)
       alert.addButton(withTitle: options["confirmTitle"] as? String ?? "OK")
       alert.addButton(withTitle: options["cancelTitle"] as? String ?? "Cancel")
@@ -213,6 +233,11 @@ public class ShellModule: Module {
     }.runOnQueue(.main)
 
     AsyncFunction("prompt") { (options: [String: Any], promise: Promise) in
+      if let file = MenuChoice.testFile(flag: "appDialog", name: "dialog.json"),
+         let answer = MenuChoice.testAnswer(dumping: options.merging(["kind": "prompt"]) { $1 }, to: file) {
+        promise.resolve(answer.isEmpty ? nil : answer)
+        return
+      }
       let alert = ShellModule.alert(options)
       alert.addButton(withTitle: options["confirmTitle"] as? String ?? "OK")
       alert.addButton(withTitle: "Cancel")
@@ -340,6 +365,10 @@ public class ShellModule: Module {
     }
 
     AsyncFunction("showMenu") { (items: [[String: Any]], promise: Promise) in
+      if let file = MenuChoice.testFile(flag: "appMenu", name: "menu.json") {
+        promise.resolve(MenuChoice.testPick(items, dumpingTo: file))
+        return
+      }
       let target = MenuChoice()
       let menu = ShellModule.contextMenu(items, target: target)
       menu.popUp(positioning: nil, at: NSEvent.mouseLocation, in: nil)
@@ -424,6 +453,7 @@ public class ShellModule: Module {
       entry.state = item["checked"] as? Bool == true ? .on : .off
       if let symbol = item["symbol"] as? String {
         entry.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
+        if #available(macOS 27.0, *) { entry.preferredImageVisibility = .visible }
       } else if let hex = item["swatch"] as? String, let light = NSColor(hex: hex) {
         let dark = (item["swatchDark"] as? String).flatMap { NSColor(hex: $0) } ?? light
         entry.image = light.alphaComponent == 0

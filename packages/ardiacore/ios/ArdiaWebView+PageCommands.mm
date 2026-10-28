@@ -11,6 +11,10 @@ using namespace ardia_web_view;
 }
 
 - (void)emitZoom {
+  [self emitZoomByUser:NO];
+}
+
+- (void)emitZoomByUser:(BOOL)user {
   const double zoom = _tab ? _tab.zoomFactor : 1;
   [self emit:@"zoom"
       payload:@{
@@ -18,6 +22,7 @@ using namespace ardia_web_view;
         @"host" : [NSURL URLWithString:_tab.url ?: @""].host.lowercaseString ?: @"",
         @"isDefault" : @(fabs(zoom - 1) < 0.001),
         @"pinchScale" : @(_pinchScale ?: 1),
+        @"user" : @(user),
       }];
 }
 
@@ -26,6 +31,7 @@ using namespace ardia_web_view;
 }
 
 - (void)tabDidChangeAudio:(ArdiaCoreTab *)tab {
+  if (_muted && !tab.muted) tab.muted = YES;
   [self emitMedia];
 }
 
@@ -43,7 +49,10 @@ using namespace ardia_web_view;
 }
 
 - (void)zoomStep:(NSInteger)direction {
+  if (!_tab) return;
+  const double before = _tab.zoomFactor;
   [_tab zoomStep:(int)direction];
+  if (fabs(_tab.zoomFactor - before) > 1e-6) [self emitZoomByUser:YES];
 }
 
 - (void)find:(NSString *)text forward:(BOOL)forward findNext:(BOOL)findNext {

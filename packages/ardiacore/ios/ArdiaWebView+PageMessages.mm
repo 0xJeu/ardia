@@ -95,6 +95,7 @@ void AnswerHello(ArdiaCoreTab *tab, NSString *profile, NSString *frameId, BOOL m
     if (main) config[@"selectionPopover"] = @(gSelectionPopover);
     config[@"peek"] = gPeekModifier;
     config[@"split"] = SplitLinkModifier();
+    config[@"peekOtherSites"] = @([ArdiaTabRegistry viewForTab:to].peeksLinksToOtherSites);
     if (PeekTracing()) config[@"peekTrace"] = @YES;
     if (TracingPictureInPicture()) config[@"pipTrace"] = @YES;
     [to callFrame:frameId kind:@"config" json:JSONString(config)];
@@ -146,7 +147,7 @@ NSMutableOrderedSet<NSString *> *ScriptFramesOf(ArdiaCoreTab *tab) {
     if (main && !tab.discarded) [self resetPageMedia];
     if (main && ![(Text(dict, @"url", 8192) ?: @"about:") hasPrefix:@"about:"]) _requestedURL = nil;
     [self noteScriptFrame:frameId main:main];
-    [self callFrame:frameId kind:@"peekConfig" json:PeekConfigJSON()];
+    [self callFrame:frameId kind:@"peekConfig" json:PeekConfigJSON(self)];
     AnswerHello(tab, _profile, frameId, main, verifiedOrigin);
     if (main && _littlePageHeld) [self callFrame:frameId kind:@"firstPaint" json:@"{}"];
   } else if ([kind isEqualToString:@"firstPaint"] && main) {
@@ -156,7 +157,7 @@ NSMutableOrderedSet<NSString *> *ScriptFramesOf(ArdiaCoreTab *tab) {
     [self peekLink:dict frame:frameId main:main];
   } else if ([kind isEqualToString:@"peekHello"]) {
     [self noteScriptFrame:frameId main:main];
-    [self callFrame:frameId kind:@"peekConfig" json:PeekConfigJSON()];
+    [self callFrame:frameId kind:@"peekConfig" json:PeekConfigJSON(self)];
   } else if ([kind isEqualToString:@"peekGone"]) {
     [self forgetScriptFrame:frameId];
   } else if ([kind isEqualToString:@"commandWheel"] && dict) {

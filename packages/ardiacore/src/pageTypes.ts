@@ -110,7 +110,7 @@ export type DisplayMediaSource = {
 export type DisplayMediaAudio = { tab: boolean; screen: boolean; window: "application" | "system" | null };
 export type DisplayMediaRequest = { id: string; origin: string; frameOrigin?: string; audio: DisplayMediaAudio | null; sources: DisplayMediaSource[] };
 
-export type ZoomState = { zoom: number; host: string; isDefault: boolean; pinchScale: number };
+export type ZoomState = { zoom: number; host: string; isDefault: boolean; pinchScale: number; user: boolean };
 export type ContentBlockedState = { count: number; url: string };
 
 export type PasswordPrompt = {

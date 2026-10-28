@@ -24,6 +24,7 @@
 #include "ui/base/data_transfer_policy/data_transfer_endpoint.h"
 #include "chrome/browser/ui/views/tab_contents/chrome_web_contents_view_delegate_views_mac.h"
 #include "chrome/app/chrome_command_ids.h"
+#include "chrome/grit/generated_resources.h"
 #include "content/public/browser/context_menu_params.h"
 #include "content/public/browser/render_frame_host.h"
 #include "content/public/browser/render_widget_host_view.h"
@@ -43,6 +44,7 @@ namespace {
 
 constexpr int kHostFirst = IDC_CONTENT_CONTEXT_CUSTOM_FIRST + 900;
 constexpr int kHostLast = IDC_CONTENT_CONTEXT_CUSTOM_FIRST + 999;
+constexpr int kOpenLinkInProfileItems = 100;
 
 ArdiaCoreTab* TabOf(content::WebContents* contents) {
   BrowserWindowInterface* browser =
@@ -119,6 +121,39 @@ class ACContextMenu : public RenderViewContextMenuMacCocoa {
   void Show() override {
     if (!ShowThroughHost()) {
       RenderViewContextMenuMacCocoa::Show();
+    }
+  }
+
+  void ArrangeLikeDia() {
+    for (size_t i = menu_model_.GetItemCount(); i-- > 0;) {
+      const int command = menu_model_.GetCommandIdAt(i);
+      if (command == IDC_CONTENT_CONTEXT_OPENLINKINPROFILE ||
+          (command >= IDC_OPEN_LINK_IN_PROFILE_FIRST &&
+           command < IDC_OPEN_LINK_IN_PROFILE_FIRST + kOpenLinkInProfileItems)) {
+        menu_model_.RemoveItemAt(i);
+      }
+    }
+    const std::optional<size_t> save =
+        menu_model_.GetIndexOfCommandId(IDC_CONTENT_CONTEXT_SAVELINKAS);
+    const std::optional<size_t> copy =
+        menu_model_.GetIndexOfCommandId(IDC_CONTENT_CONTEXT_COPYLINKLOCATION);
+    if (save && copy && *save > *copy) {
+      menu_model_.RemoveItemAt(*save);
+      menu_model_.InsertItemWithStringIdAt(*copy, IDC_CONTENT_CONTEXT_SAVELINKAS,
+                                           IDS_CONTENT_CONTEXT_SAVELINKAS);
+    }
+    const std::optional<size_t> reload = menu_model_.GetIndexOfCommandId(IDC_RELOAD);
+    if (!reload) {
+      return;
+    }
+    if (!menu_model_.GetIndexOfCommandId(IDC_BACK)) {
+      menu_model_.InsertItemWithStringIdAt(
+          menu_model_.GetIndexOfCommandId(IDC_FORWARD).value_or(*reload), IDC_BACK,
+          IDS_CONTENT_CONTEXT_BACK);
+    }
+    if (!menu_model_.GetIndexOfCommandId(IDC_FORWARD)) {
+      menu_model_.InsertItemWithStringIdAt(*menu_model_.GetIndexOfCommandId(IDC_BACK) + 1,
+                                           IDC_FORWARD, IDS_CONTENT_CONTEXT_FORWARD);
     }
   }
 
@@ -298,6 +333,7 @@ class ACViewDelegate : public ChromeWebContentsViewDelegateViewsMac {
         render_frame_host, params, paste_enabled_, paste_and_match_style_enabled_,
         view->GetNativeView().GetNativeNSView());
     menu->Init();
+    menu->ArrangeLikeDia();
     menu->RemoveViewlessItems();
     menu->AddHostItems();
     return menu;

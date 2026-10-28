@@ -1,4 +1,4 @@
-import { showMenu, type MenuItem } from "../../state/app/system";
+import { showMenu } from "../../state/app/system";
 import {
   translation,
   defaultTarget,
@@ -12,6 +12,7 @@ import {
   translateStateOf,
   useTranslateState,
 } from "../../state/site/translate";
+import { translateMenuItems } from "../../state/site/translateMenu";
 import { memo } from "react";
 import { useTheme } from "../ui/theme";
 import { useSettings, useTab } from "../../state/browser/hooks";
@@ -46,26 +47,26 @@ export const TranslateButton = memo(function TranslateButton({ tabId, palette, b
 async function chooseLanguage(tabId: string) {
   const languages = await otherLanguages();
   const current = translateStateOf(tabId).target;
-  const items: MenuItem[] = languages.map((l) => ({ id: l.id, title: l.name, checked: l.id === current }));
-  const choice = await showMenu(items);
+  const choice = await showMenu(languages.map((l) => ({ id: l.id, title: l.name, checked: l.id === current })));
   if (choice) void translatePage(tabId, choice);
 }
 
 async function showTranslateMenu(tabId: string) {
   const tab = currentTab(tabId);
   if (!tab) return;
-  const translated = translateStateOf(tabId).status !== "idle";
-  const items: MenuItem[] = [
-    translated ? { id: "original", title: "Show Original", symbol: "arrow.uturn.backward" } : { id: "translate", title: `Translate to ${languageName(defaultTarget())}`, symbol: "translate" },
-    { id: "choose", title: "Choose Another Language…", symbol: "globe" },
-  ];
-  if (!isIncognitoProfile(tab.profileId)) {
-    items.push({ separator: true }, { id: "never", title: "Never Translate This Site", checked: isNeverTranslated(tab.profileId, tab.url) });
-  }
-  const choice = await showMenu(items);
+  const state = translateStateOf(tabId);
+  const languages = await otherLanguages();
+  const choice = await showMenu(
+    translateMenuItems({
+      translated: state.status !== "idle",
+      target: languageName(defaultTarget()),
+      languages: languages.map((l) => ({ id: l.id, name: l.name, current: l.id === state.target })),
+      neverTranslate: isIncognitoProfile(tab.profileId) ? null : isNeverTranslated(tab.profileId, tab.url),
+    }),
+  );
   if (choice === "original") void revertPage(tabId);
   else if (choice === "translate") void translatePage(tabId);
-  else if (choice === "choose") void chooseLanguage(tabId);
+  else if (choice?.startsWith("language:")) void translatePage(tabId, choice.slice("language:".length));
   else if (choice === "never") setNeverTranslate(tabId, !isNeverTranslated(tab.profileId, tab.url));
 }
 

@@ -32,6 +32,7 @@ import { useResource } from "../../../state/settings/resources";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 import { updateSettings } from "../../../state/settings/actions";
 import { ShareDiagnosticsSection } from "./ShareDiagnostics";
+import { UI_LOCALE } from "../../../lib/uiLocale";
 
 const CATEGORIES: { id: FilterListCategory; toggle: string; section: string; anchor?: string }[] = [
   { id: "ads", toggle: "Block ads", section: "Ad blockers", anchor: "privacy.blockAds" },
@@ -42,7 +43,7 @@ const CATEGORIES: { id: FilterListCategory; toggle: string; section: string; anc
   { id: "regional", toggle: "", section: "Regional blockers" },
 ];
 
-const filtersText = (n: number) => `${n.toLocaleString()} ${n === 1 ? "filter" : "filters"}`;
+const filtersText = (n: number) => `${n.toLocaleString(UI_LOCALE)} ${n === 1 ? "filter" : "filters"}`;
 
 function useContentBlocker() {
   const [state, reload] = useResource(contentBlocker);
@@ -128,7 +129,7 @@ export function PrivacyPane() {
       <ZoomLevels />
       {blocker && (
         <Text style={{ marginTop: 14, ...font.footnote, color: theme.textTertiary }}>
-          {`${(blocker.stats.networkFilters ?? 0).toLocaleString()} network and ${(blocker.stats.cosmeticFilters ?? 0).toLocaleString()} cosmetic rules loaded.`}
+          {`${(blocker.stats.networkFilters ?? 0).toLocaleString(UI_LOCALE)} network and ${(blocker.stats.cosmeticFilters ?? 0).toLocaleString(UI_LOCALE)} cosmetic rules loaded.`}
         </Text>
       )}
       <ShareDiagnosticsSection />

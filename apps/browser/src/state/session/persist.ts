@@ -16,10 +16,11 @@ import { startHistory } from "../history/engineSync";
 import { startProfileDataCleanup } from "../profiles/profileData";
 import { versionedJson, unchanged, upgraded, type Migrations } from "../../lib/savedDocument";
 import { sessionWithCleanUpMinutes } from "../settings/cleanUpAfter";
+import { sessionWithOwnTabMutes } from "../tabs/mute";
 
 const SAVE_DELAY_MS = 800;
-const SESSION_VERSION = 3;
-const SESSION_MIGRATIONS: Migrations = { 2: sessionWithCleanUpMinutes };
+const SESSION_VERSION = 4;
+const SESSION_MIGRATIONS: Migrations = { 2: sessionWithCleanUpMinutes, 3: sessionWithOwnTabMutes };
 const DOWNLOADS_VERSION = 2;
 const DOWNLOADS_MIGRATIONS: Migrations = { 0: unchanged, 1: unchanged };
 
@@ -101,8 +102,8 @@ function write(name: string, json: string) {
 
 const byId = <T extends { id: string }>(list: T[] | undefined) => Object.fromEntries((list ?? []).map((x) => [x.id, x]));
 
-type SessionV3 = {
-  version: 3;
+type SessionV4 = {
+  version: 4;
   profiles: HydrateData["profiles"];
   profileOrder: string[];
   orphanedProfileData?: string[];
@@ -138,7 +139,7 @@ function forgetStaging(id: string) {
 }
 
 export function loadSession(): HydrateData | null {
-  const session = read<SessionV3>("session.json", SESSION_VERSION, SESSION_MIGRATIONS);
+  const session = read<SessionV4>("session.json", SESSION_VERSION, SESSION_MIGRATIONS);
   if (!session) return null;
   const downloads = read<{ downloads: Download[] }>("downloads.json", DOWNLOADS_VERSION, DOWNLOADS_MIGRATIONS);
   droppedPrivateDownloads = (downloads?.downloads ?? []).some((d) => downloadSession(d) !== null);

@@ -5,6 +5,7 @@ import { ancestorIds } from "../groups/groups";
 import { groupOf } from "../pins/organize";
 import { splitOf } from "../splits/splits";
 import { groupEntries, holdsTab, keptEntry, sidebarEntries } from "./entries";
+import { shownPinnedEntries } from "./pinnedFold";
 
 const GROUP_PAD = SIDEBAR_GROUP.pad;
 const GROUP_BORDER = SIDEBAR_GROUP.border;
@@ -57,7 +58,7 @@ export function rowSpan(
 ): { section: Section; top: number; height: number } | null {
   const { pinned, list } = sidebarEntries(s, windowId, profileId);
   const sections: [Section, string[], number][] = [
-    ["pinnedGroups", pinned, 0],
+    ["pinnedGroups", shownPinnedEntries(s, windowId, profileId, pinned), 0],
     ["list", list, newTabAtTop ? ROW + GAP : 0],
   ];
   const within = (entries: string[], top: number): number | null => {

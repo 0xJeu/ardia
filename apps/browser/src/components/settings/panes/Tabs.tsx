@@ -34,6 +34,9 @@ function LinkKeys({ settings, update }: { settings: Settings; update: (patch: Pa
   const splitOptions = SPLIT_WITH.map((o) => (o.value === "alt" && peekWith === "alt" ? { ...o, title: "⌥-click (Peek moves to ⇧-click)" } : o));
   return (
     <Group>
+      <Row anchor="tabs.peekLinksToOtherSites">
+        <Toggle value={settings.peekLinksToOtherSites} onChange={(peekLinksToOtherSites) => update({ peekLinksToOtherSites })} />
+      </Row>
       <Row anchor="tabs.peekModifier" description={withNote("tabs.peekModifier", splitWith === "alt" ? "⌥-click opens a split now: choosing it here moves split view back to ⌥⇧-click." : null)}>
         <PopUp value={peekWith} options={peekOptions} onChange={(peekModifier) => update({ peekModifier })} />
       </Row>

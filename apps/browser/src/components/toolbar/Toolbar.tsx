@@ -17,7 +17,7 @@ import { closePane, openSplitPane, showSplitMenu } from "../../state/splits/acti
 import { toolbarPalette, useEasedColor, type ToolbarPalette } from "../ui/toolbarColors";
 import { setToolbarExtensionsWidth } from "../../state/windows/layout";
 import { SIDEBAR_FIELD } from "../sidebar/geometry";
-import { FieldSiteButton, SunkenFieldFill } from "../sidebar/SunkenField";
+import { FieldSiteButton, SidebarFieldFill } from "../sidebar/SidebarField";
 import { showUrlBarMenu } from "../../state/omnibox/paste";
 import { ToolbarExtensions, useToolbarExtensionsWidth } from "../extensions/ToolbarExtensions";
 import { FIELD_GLASS_HOVER_OPACITY, FIELD_GLASS_OPACITY, GlassFill, liquidGlass } from "../ui/Glass";
@@ -209,7 +209,7 @@ export const UrlField = memo(function UrlField({
       ]}
     >
       {sidebar ? (
-        <SunkenFieldFill hovered={hovered} />
+        <SidebarFieldFill hovered={hovered} />
       ) : liquidGlass ? (
         <GlassFill tint={null} opacity={hovered ? FIELD_GLASS_HOVER_OPACITY : FIELD_GLASS_OPACITY} radius={row.fieldRadius} fill={palette.pill} dark={palette.background ? palette.text.startsWith(ink.white) : undefined} />
       ) : null}

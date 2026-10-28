@@ -59,7 +59,7 @@ export function PageOverlays({
       {!newTabShown && <EngineOfferPrompt tabId={tabId} left={Math.max(POPOVER_MARGIN, Math.min(geometry.urlLeft, width - 348))} top={POPOVER_MARGIN} />}
       {popovers && <SiteControls tabId={tabId} open={popover === "siteControls"} {...popoverSide} top={POPOVER_MARGIN} />}
       {popovers && popover === "popups" && <BlockedPopupsPrompt tabId={tabId} {...popoverSide} top={POPOVER_MARGIN} />}
-      {popovers && popover === "zoom" && <ZoomPopover tabId={tabId} {...popoverSide} top={POPOVER_MARGIN} />}
+      {popovers && <ZoomPopover tabId={tabId} open={popover === "zoom"} {...popoverSide} top={POPOVER_MARGIN} />}
       <SharePicker tabId={tabId} paneWidth={width} />
       {!newTabShown && <DeviceChooser tabId={tabId} left={Math.max(POPOVER_MARGIN, Math.min(geometry.urlLeft, width - 348))} top={POPOVER_MARGIN} />}
       <CastPicker tabId={tabId} paneWidth={width} />
@@ -76,7 +76,7 @@ export function BesidePeekPopovers({ tabId, left, top, room }: { tabId: string; 
     <>
       <SiteControls tabId={tabId} open={popover === "siteControls"} {...fit(SITE_PANEL.width)} />
       {popover === "popups" && <BlockedPopupsPrompt tabId={tabId} {...fit(BLOCKED_POPUPS_WIDTH)} />}
-      {popover === "zoom" && <ZoomPopover tabId={tabId} {...fit(ZOOM_POPOVER_WIDTH)} />}
+      <ZoomPopover tabId={tabId} open={popover === "zoom"} {...fit(ZOOM_POPOVER_WIDTH)} />
     </>
   );
 }

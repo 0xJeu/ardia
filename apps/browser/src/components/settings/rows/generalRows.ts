@@ -176,6 +176,11 @@ export const generalRows: Pick<Record<SettingsPane, SettingSection[]>, "general"
     {
       section: "Links",
       rows: {
+        peekLinksToOtherSites: {
+          title: "Open a Peek window when clicking on links to other sites",
+          description: "This only affects Top Apps and pinned tabs. Links on the same site, ⌘-clicks and links that open a new tab or download work as before.",
+          keywords: ["peek", "preview", "external links", "other sites", "pinned", "pinned tabs", "top apps", "favorites", "glance", "arc", "zen"],
+        },
         peekModifier: {
           title: "Peek a link with",
           description: "Opens the link in a preview over the page. Open as Tab or Split View keeps it; Esc closes it.",
@@ -241,6 +246,21 @@ export const generalRows: Pick<Record<SettingsPane, SettingSection[]>, "general"
           title: "Compact toolbar",
           description: "A 28 pt toolbar instead of Dia's 41 pt, so the page gets more height and a 16:9 video can fill a maximized window. For the address bar in the toolbar and for tabs at the top.",
           keywords: ["toolbar height", "smaller toolbar", "thin toolbar", "slim", "dense", "helium", "video", "16:9", "black bars", "url bar"],
+        },
+      },
+    },
+    {
+      section: "Bookmarks Bar",
+      rows: {
+        bookmarksBar: {
+          title: "Show bookmarks bar",
+          description: "Below the toolbar. Also in View › Show Bookmarks Bar, ⇧⌘B.",
+          keywords: ["bookmarks bar", "favorites bar", "favourites bar", "toolbar", "hide bookmarks", "show bookmarks"],
+        },
+        bookmarksBarSize: {
+          title: "Size",
+          description: "Large makes the bar, its icons and its text bigger, and its folder menus roomier.",
+          keywords: ["bookmarks bar", "bigger", "larger", "large", "small", "text size", "icon size", "readability", "favorites bar"],
         },
       },
     },

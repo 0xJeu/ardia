@@ -73,6 +73,16 @@ enum class ArdiaPageFocus { Unknown, Page, DevTools, Elsewhere };
   CGFloat _framePaneZ;
   BOOL _holding;
   __weak ArdiaWebView *_holdingFor;
+  __weak ArdiaWebView *_tookOverFrom;
+  CFTimeInterval _tookOverAt;
+  __weak NSView *_standInPage;
+  ArdiaCoreTab *_standInTab;
+  __weak ArdiaWebView *_standInLender;
+  BOOL _standInCloses;
+  BOOL _standInLeaving;
+  float _standInOpacity;
+  NSUInteger _standInGeneration;
+  __weak ArdiaWebView *_lentTo;
   NSUInteger _holdGeneration;
   BOOL _handingOff;
   BOOL _revealed;
@@ -146,6 +156,14 @@ enum class ArdiaPageFocus { Unknown, Page, DevTools, Elsewhere };
 - (void)takeFocusFromLingeringPane;
 @end
 
+@interface ArdiaWebView (StandInInternal)
+- (void)lendPageToSuccessor;
+- (void)reclaimLentPage;
+- (BOOL)closesLentTab:(ArdiaCoreTab *)tab;
+- (void)dropStandIn;
+- (void)finishStandIn;
+@end
+
 @interface ArdiaWebView (FocusInternal)
 + (ArdiaWebView *)holding:(id)responder;
 - (void)storePageFocus;
@@ -177,6 +195,7 @@ enum class ArdiaPageFocus { Unknown, Page, DevTools, Elsewhere };
 
 @interface ArdiaWebView (PeekInternal)
 - (void)pushPeekModifier;
+- (BOOL)peeksLinksToOtherSites;
 - (void)fallBackFromPeek:(NSDictionary *)dict url:(NSString *)url frame:(NSString *)frameId reason:(NSString *)reason test:(BOOL)test;
 - (void)peekLink:(NSDictionary *)dict frame:(NSString *)frameId main:(BOOL)main;
 @end
@@ -243,7 +262,7 @@ void InstallPeekMonitor();
 BOOL PeekTracing();
 void PeekTrace(NSDictionary *entry);
 NSString *SplitLinkModifier();
-NSString *PeekConfigJSON();
+NSString *PeekConfigJSON(ArdiaWebView *view);
 
 void InstallControlPressMonitor();
 BOOL TracingPictureInPicture();

@@ -9,7 +9,6 @@ import { useTheme } from "../../ui/theme";
 import { useProfileRecords } from "../../../state/profiles/hooks";
 import { useProfiles } from "../../../state/browser/hooks";
 import {
-  addRemoteProfile,
   chooseSyncFolder,
   folderInfo,
   setProfileSynced,
@@ -21,7 +20,7 @@ import {
 import { DATA_TYPES, type SyncStatus } from "../../../state/sync/syncDoc";
 import { ProfileBadge } from "../../profiles/ProfileIcons";
 import { Group, Row, SectionHeader } from "../Form";
-import { folderLabel, showConnectDevice, showPhraseEntry, showRecoveryKit, showStopSync } from "./SyncSheets";
+import { addAllRemoteProfiles, folderLabel, lookingForProfiles, RemoteProfileRow, showConnectDevice, showPhraseEntry, showRecoveryKit, showStopSync } from "./SyncSheets";
 import { settingsType } from "../tokens";
 
 export function SyncPane() {
@@ -164,6 +163,7 @@ function SyncOn({ info }: { info: FolderInfo | null }) {
   const links = useSync((s) => s.profiles);
   const devices = useSync((s) => s.devices);
   const remoteProfiles = useSync((s) => s.remoteProfiles);
+  const joining = useSync((s) => s.joining);
   const profiles = useProfiles();
   const allProfiles = useProfileRecords();
   const [, tick] = useState(0);
@@ -210,7 +210,17 @@ function SyncOn({ info }: { info: FolderInfo | null }) {
         </View>
       ) : null}
 
-      <SectionHeader title="Profiles" description="Choose which profiles sync on this Mac. Each syncs on its own." />
+      <SectionHeader
+        title="Profiles"
+        description={
+          joining
+            ? lookingForProfiles(pending)
+            : remoteProfiles.length
+              ? "Choose which profiles sync on this Mac. Each syncs on its own. Profiles on your other devices can be added to this Mac."
+              : "Choose which profiles sync on this Mac. Each syncs on its own."
+        }
+        action={remoteProfiles.filter((p) => !p.waiting).length > 1 ? <Button title="Add All" onPress={() => addAllRemoteProfiles(remoteProfiles)} /> : undefined}
+      />
       <Group>
         {profiles.map((p) => {
           const link = links[p.id];
@@ -227,9 +237,7 @@ function SyncOn({ info }: { info: FolderInfo | null }) {
           );
         })}
         {remoteProfiles.map((p) => (
-          <Row key={p.syncId} icon={<ProfileBadge profile={{ name: p.name, color: p.color, icon: p.icon }} size={24} />} title={p.name} description={remoteProfileDescription(p)}>
-            <Button title="Add to This Mac" disabled={!!p.waiting} onPress={() => addRemoteProfile(p.syncId)} />
-          </Row>
+          <RemoteProfileRow key={p.syncId} profile={p} />
         ))}
       </Group>
 
@@ -259,13 +267,6 @@ function SyncOn({ info }: { info: FolderInfo | null }) {
       </Group>
     </>
   );
-}
-
-function remoteProfileDescription(p: { sharesWith?: { name: string; added: boolean }; waiting?: true }): string {
-  if (p.waiting) return "On your other devices. Waiting for the profile it shares data with to sync.";
-  if (!p.sharesWith) return "On your other devices";
-  const { name, added } = p.sharesWith;
-  return added ? `On your other devices. Shares data with ${name}, which is added too.` : `On your other devices. Shares data with ${name}.`;
 }
 
 export function ago(at: number, now = Date.now()): string {

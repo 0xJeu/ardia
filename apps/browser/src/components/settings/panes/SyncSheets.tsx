@@ -13,7 +13,10 @@ import {
 import { useEffect, useState, type ReactNode } from "react";
 import { Image, StyleSheet, Text, TextInput, View } from "react-native";
 import { useTheme } from "../../ui/theme";
-import { enterRecoveryPhrase, stopSync } from "../../../state/sync/engine";
+import { addRemoteProfile, enterRecoveryPhrase, stopSync, useSync } from "../../../state/sync/engine";
+import type { RemoteProfile } from "../../../state/sync/syncDoc";
+import { ProfileBadge } from "../../profiles/ProfileIcons";
+import { Group, Row } from "../Form";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 import { settingsType } from "../tokens";
 import { useSettingsColors } from "../useSettingsColors";
@@ -133,17 +136,22 @@ function PhraseSheet({ folder, onChooseFolder }: { folder: FolderInfo | null; on
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [joined, setJoined] = useState(false);
+  const syncing = useSync((s) => s.enabled);
   const count = text.toLowerCase().split(/[^a-z]+/).filter(Boolean).length;
   const submit = async () => {
     if (!folder || busy) return;
     setBusy(true);
     setError(null);
+    const joining = !syncing;
     const result = await enterRecoveryPhrase(folder.path, text);
     setBusy(false);
     const message = phraseError(result);
     if (message) setError(message);
+    else if (joining) setJoined(true);
     else closeSettingsSheet();
   };
+  if (joined) return <JoinedSheet />;
   return (
     <Sheet width={440} onClose={closeSettingsSheet}>
       <Title>Connect with Recovery Phrase</Title>
@@ -194,6 +202,66 @@ function PhraseSheet({ folder, onChooseFolder }: { folder: FolderInfo | null; on
       <Buttons>
         <Button title="Cancel" onPress={closeSettingsSheet} />
         <Button title={busy ? "Connecting…" : "Connect"} kind="primary" disabled={busy || count !== WORDS || !folder} onPress={() => void submit()} />
+      </Buttons>
+    </Sheet>
+  );
+}
+
+export function remoteProfileDescription(p: Pick<RemoteProfile, "sharesWith" | "waiting">): string {
+  if (p.waiting) return "On your other devices. Waiting for the profile it shares data with to sync.";
+  if (!p.sharesWith) return "On your other devices";
+  const { name, added } = p.sharesWith;
+  return added ? `On your other devices. Shares data with ${name}, which is added too.` : `On your other devices. Shares data with ${name}.`;
+}
+
+export function addAllRemoteProfiles(profiles: RemoteProfile[]) {
+  for (const p of profiles) if (!p.waiting) addRemoteProfile(p.syncId);
+}
+
+export function RemoteProfileRow({ profile }: { profile: RemoteProfile }) {
+  return (
+    <Row
+      icon={<ProfileBadge profile={{ name: profile.name, color: profile.color, icon: profile.icon }} size={24} />}
+      title={profile.name}
+      description={remoteProfileDescription(profile)}
+    >
+      <Button title="Add to This Mac" disabled={!!profile.waiting} onPress={() => addRemoteProfile(profile.syncId)} />
+    </Row>
+  );
+}
+
+export function lookingForProfiles(pending: number): string {
+  const looking = "Looking for the profiles on your other devices…";
+  return pending ? `${looking} Waiting for ${pending === 1 ? "1 file" : `${pending} files`} to download.` : looking;
+}
+
+function joinedMessage(found: number, joining: boolean, pending: number, error: string | null): string {
+  if (found) return "These profiles are on your other devices. Add them to this Mac to sync their pinned tabs, bookmarks, history and passwords here too.";
+  if (error) return error;
+  if (joining) return lookingForProfiles(pending);
+  return "Every profile on your other devices is on this Mac too.";
+}
+
+function JoinedSheet() {
+  const remote = useSync((s) => s.remoteProfiles);
+  const joining = useSync((s) => s.joining);
+  const pending = useSync((s) => s.pending);
+  const error = useSync((s) => (s.status === "stalled" ? s.error : null));
+  const addable = remote.filter((p) => !p.waiting).length;
+  return (
+    <Sheet width={460} onClose={closeSettingsSheet}>
+      <Title>This Mac Is Syncing</Title>
+      <Body>{joinedMessage(remote.length, joining, pending, error)}</Body>
+      {remote.length ? (
+        <Group style={{ marginTop: 14 }}>
+          {remote.map((p) => (
+            <RemoteProfileRow key={p.syncId} profile={p} />
+          ))}
+        </Group>
+      ) : null}
+      <Buttons>
+        <Button title="Done" kind={addable > 1 ? "default" : "primary"} onPress={closeSettingsSheet} />
+        {addable > 1 ? <Button title="Add All" kind="primary" onPress={() => addAllRemoteProfiles(remote)} /> : null}
       </Buttons>
     </Sheet>
   );

@@ -11,6 +11,7 @@ import {
   type SearchEngine,
 } from "@ardia/core";
 import type { PageEngine } from "../../platform/tabs";
+import type { MemorySaverMode } from "../../platform/performance";
 import type { StateCreator } from "zustand";
 import type { BrowserState } from "../browser/store";
 
@@ -44,6 +45,7 @@ export type Settings = {
   cmdClickCreatesTabGroup: boolean;
   optShiftClickOpensInGroup: boolean;
   peekModifier: PeekModifier;
+  peekLinksToOtherSites: boolean;
   splitLinkModifier: SplitLinkModifier;
   autoGroupMeetingTabs: boolean;
   cleanUpInactiveTabsAfterMinutes: number | null;
@@ -64,12 +66,16 @@ export type Settings = {
   fadeUnloadedTabs: boolean;
   warnBeforeClosingTabGroup: boolean;
   batterySaverWhen: BatterySaverWhen;
+  memorySaver: boolean;
+  memorySaverMode: MemorySaverMode;
+  keepActiveSites: string[];
   extensionSidePanelWidth: number;
 
   showFullUrl: boolean;
   allowJavaScriptFromAppleEvents: boolean;
   cliControl: boolean;
   bookmarksBar: "always" | "newTab" | "never";
+  bookmarksBarSize: "default" | "large";
   hideBookmarksBarImport: boolean;
 
   appearance: "auto" | "light" | "dark";
@@ -138,6 +144,7 @@ export const DEFAULT_SETTINGS: Settings = {
   cmdClickCreatesTabGroup: true,
   optShiftClickOpensInGroup: true,
   peekModifier: "shift",
+  peekLinksToOtherSites: false,
   splitLinkModifier: "altShift",
   autoGroupMeetingTabs: true,
   cleanUpInactiveTabsAfterMinutes: null,
@@ -158,11 +165,15 @@ export const DEFAULT_SETTINGS: Settings = {
   fadeUnloadedTabs: false,
   warnBeforeClosingTabGroup: true,
   batterySaverWhen: "lowBattery",
+  memorySaver: true,
+  memorySaverMode: "balanced",
+  keepActiveSites: [],
   extensionSidePanelWidth: 360,
   showFullUrl: false,
   allowJavaScriptFromAppleEvents: false,
   cliControl: false,
   bookmarksBar: "never",
+  bookmarksBarSize: "default",
   hideBookmarksBarImport: false,
   appearance: "auto",
   addressBar: "toolbar",

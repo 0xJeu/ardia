@@ -20,7 +20,7 @@ const stubs = {
 };
 registerHooks({
   resolve(specifier, context, next) {
-    if (!/\/state\/tabs\/(?:tabLifecycle|tabKeepAlive)\.ts$/.test(context.parentURL ?? "") || !(specifier in stubs)) return next(specifier, context);
+    if (!/\/state\/tabs\/(?:tabLifecycle|memorySaver|shownTabs)\.ts$/.test(context.parentURL ?? "") || !(specifier in stubs)) return next(specifier, context);
     return { url: `data:text/javascript,${encodeURIComponent(stubs[specifier])}`, shortCircuit: true };
   },
 });
