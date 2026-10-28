@@ -29,7 +29,7 @@ NSArray<NSString *> *EngineInstanceKeys() {
 NSArray<NSString *> *EngineTestKeys() {
   return @[
     @"keychain", @"keychainHiddenReads", @"keychainFail", @"safeStorageAnswer", @"reauth", @"bluetoothChooser",
-    @"externalProtocolNoLaunch", @"mediaRouteProvider", @"systemMediaPermission", @"applyProfileGate", @"contextMenu",
+    @"externalProtocolNoLaunch", @"externalProtocolApp", @"mediaRouteProvider", @"systemMediaPermission", @"applyProfileGate", @"contextMenu",
   ];
 }
 

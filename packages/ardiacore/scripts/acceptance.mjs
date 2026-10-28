@@ -61,6 +61,7 @@ const usesPageA = [
   "extension-prompts", "traffic-lights-after-profile-switch", "extension-configure",
   "private-windows-create", "extension-installed-bubble", "popup-window", "autofill-save-prompts",
   "settings-services", "download-navigation", "page-events", "page-background", "external-app-answer",
+  "external-app-from-extension",
   "notifications", "now-playing", "media-state", "auto-picture-in-picture", "pip-window", "page-focus",
   "fullscreen-tab-switch", "fullscreen-native", "fullscreen-menu-bar-reveal", "fullscreen-transition-picture", "fullscreen-hidden-page", "fullscreen-split-sibling",
   "fullscreen-pip", "autofill-suggestions", "images", "extension-surfaces", "frozen", "discard",
@@ -3156,6 +3157,28 @@ try {
     return { app: firstAsk.app, origin: firstAsk.origin, remember: firstAsk.remember, icon: !!firstAsk.icon,
       declined: [firstAsk.id, again.id], allowancesAfterDecline: allowances.length, opened: launch, allowance: remembered,
       removed: true, launched: false };
+  });
+
+  await check("external-app-from-extension", async () => {
+    await evalApp(`ac.actions.switchToTab("${first.id}"); return true`);
+    await until("A shown", async () => (await state()).active === first.id);
+    return withPopupExtension({}, async (id) => {
+      const worker = await until("the extension's worker", async () =>
+        (await targets()).find((t) => t.type === "service_worker" && t.url.includes(`${id}/worker.js`)) ?? null, 10000);
+      await evalApp(`ac.pageState.setState((s) => ({ pages: { ...s.pages, "${first.id}": { ...s.pages["${first.id}"], externalApp: null } } })); return true`);
+      const url = "shortcuts://ardiacore-acceptance-extension?file=Clipped%20page&clipboard";
+      const expression = `chrome.tabs.query({ url: "${base}/a*" }).then(([tab]) => { chrome.tabs.update(tab.id, { url: ${JSON.stringify(url)} }); return "sent"; }, (e) => e.message)`;
+      const sent = (await cdp(worker, "Runtime.evaluate", { expression, awaitPromise: true, returnByValue: true })).result.value;
+      if (sent !== "sent") throw new Error(`chrome.tabs.update(): ${sent}`);
+      const request = await until("the prompt", async () => evalApp(`return ac.pageState.getState().pages["${first.id}"]?.externalApp ?? null`), 10000);
+      if (request.origin !== `chrome-extension://${id}`) throw new Error(`the prompt names ${request.origin}`);
+      await evalApp(`ac.pageState.setState((s) => ({ pages: { ...s.pages, "${first.id}": { ...s.pages["${first.id}"], externalApp: null } } }));
+        return ac.engine.call("permissions.resolveExternalApp", ${JSON.stringify({ id: request.id, open: true, remember: false })}).then(() => true)`);
+      const launch = await until("the recorded launch", async () =>
+        (await engine("permissions.devExternalLaunches")).find((l) => l.url === url) ?? null, 8000)
+        .catch(() => { throw new Error("Open on an extension's link launched nothing"); });
+      return { origin: request.origin, app: request.app, launched: launch.url };
+    });
   });
 
   await check("notifications", async () => {
