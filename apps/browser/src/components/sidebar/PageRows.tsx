@@ -5,18 +5,19 @@ import { layout, useTheme } from "../ui/theme";
 import { useSettings } from "../../state/browser/hooks";
 import { isIncognitoProfile } from "../../state/browser/model";
 import { newCapture } from "../../state/sidebar/listCapture";
-import { useCanTidyPins, useCapturedSidebarEntries } from "../../state/sidebar/hooks";
+import { useCanTidyPins, useCapturedSidebarEntries, usePinnedCollapsed, usePinnedKept } from "../../state/sidebar/hooks";
 import { useAddressBarInSidebar } from "../../state/windows/layout";
 import { ClearDivider } from "./ClearDivider";
 import { useDragController, useDragItem } from "./DragProvider";
 import { type EntryMotion } from "./EntryMotion";
+import { Fold, useFold } from "./Fold";
 import { GroupBlock } from "./GroupBlock";
 import { GhostSlot, ListMotionContext, useListMotion } from "./ListMotion";
 import { LiveFolderBlock } from "./LiveFolderBlock";
 import { PinnedGrid } from "./PinnedGrid";
 import { LIVE, usePinnedSequence } from "../../state/sidebar/pinnedOrder";
 import { SCROLL_EDGE } from "./ScrollEdge";
-import { firstPaintEntriesNow, usePendingEntriesHeight } from "../../state/sidebar/geometry";
+import { entryHeightNow, firstPaintEntriesNow, usePendingEntriesHeight } from "../../state/sidebar/geometry";
 import { SplitRowItem, TabRowItem } from "./TabRow";
 import { INCOGNITO_ICON } from "../ntp/IncognitoHeading";
 import { ROW_PITCH, ROWS_PER_FRAME, type SidebarGeometry } from "./pageLayout";
@@ -58,9 +59,13 @@ export function PageRows({ windowId, profileId, current, rows, lazy, offScreen, 
   const showClear = useSettings((s) => s.showClearButton);
   const clearable = showClear && !offScreen && all.length > 0;
   const tidy = useCanTidyPins(windowId, profileId, offScreen);
-  const divided = clearable || tidy;
   const pinned = usePinnedSequence(windowId, profileId, offScreen);
   const pinnedSection = pinned.length > 0;
+  const divided = clearable || tidy || pinnedSection;
+  const collapsed = usePinnedCollapsed(profileId);
+  const pinnedFold = useFold(collapsed);
+  const kept = usePinnedKept(windowId, profileId, pinned);
+  const pinnedGap = collapsed && !kept && !pinnedFold.moving ? 0 : layout.rowGap;
   const newTabButtonAtTop = useSettings((s) => s.newTabButtonPosition === "top");
   const animated = current && !offScreen;
   const motion = useListMotion(windowId, profileId, all, captured, animated);
@@ -78,20 +83,36 @@ export function PageRows({ windowId, profileId, current, rows, lazy, offScreen, 
             controller?.regions.set("pinnedGroups", v);
           }}
           onLayout={geometry ? (e) => void (geometry.current.regions.pinnedGroups = e.nativeEvent.layout.y) : undefined}
-          style={{ marginTop: tiles.length ? 6 : 0, gap: layout.rowGap }}
+          style={{ marginTop: tiles.length ? 6 : 0, gap: pinnedGap }}
         >
-          {pinned.map((entry) => (
-            <PinnedEntry key={entry} entry={entry} windowId={windowId} />
-          ))}
+          {pinnedSection ? (
+            <Fold
+              fold={pinnedFold}
+              collapsed={collapsed}
+              entries={pinned.map((entry) => ({ key: entry, node: <PinnedEntry entry={entry} windowId={windowId} /> }))}
+              keep={kept}
+              gap={layout.rowGap}
+              estimate={(key) => entryHeightNow(windowId, profileId, key)}
+            />
+          ) : null}
           <Tail id="tail:pinnedGroups" section="pinnedGroups" />
         </View>
-        {divided ? <ClearDivider windowId={windowId} profileId={profileId} spaced={pinnedSection} clear={clearable} tidy={tidy} /> : null}
+        {divided ? (
+          <ClearDivider
+            windowId={windowId}
+            profileId={profileId}
+            spaced={pinnedSection}
+            clear={clearable}
+            tidy={tidy}
+            pinned={pinnedSection ? { collapsed, open: pinnedFold.open } : null}
+          />
+        ) : null}
         <View
           ref={(v) => {
             controller?.regions.set("list", v);
           }}
           onLayout={geometry ? (e) => void (geometry.current.regions.list = e.nativeEvent.layout.y) : undefined}
-          style={{ marginTop: pinnedSection && !divided ? 7 : 0, gap: layout.rowGap }}
+          style={{ gap: layout.rowGap }}
         >
           {newTabButtonAtTop && inlineNewTab ? <NewTabRow windowId={windowId} /> : null}
           {motion.fading

@@ -236,6 +236,7 @@ test("the sidebar background menu: new things, then the sidebar toggles, Close A
     "---",
     "Bookmark All Tabs… [bookmark] ⇧⌘D",
     "---",
+    "Collapse Pinned Tabs [rectangle.compress.vertical] (off)",
     "Show Tabs in Sidebar [sidebar.left] ⇧⌘S ✓",
     "Auto-Hide Tabs ⌘S",
     "---",

@@ -9,6 +9,7 @@ import { closeAllTabs } from "./clearTabs";
 import { lastClosedEntry } from "../windows/reopenClosed";
 import { newLiveFolderMenuItem, runNewLiveFolder } from "./liveMenus";
 import { sections } from "./menuParts";
+import { pinnedFoldMenuItem, runPinnedFold } from "./pinnedFold";
 
 const store = () => useBrowser.getState();
 
@@ -23,6 +24,7 @@ export function sidebarMenuItems(s: BrowserState, windowId: string): MenuItem[] 
     [{ id: "newProfile", title: "New Profile…", symbol: "plus" }],
     [{ id: "bookmarkAll", title: "Bookmark All Tabs…", symbol: "bookmark", ...menuShortcut("bookmarkAllTabs", s) }],
     [
+      ...pinnedFoldMenuItem(s, windowId),
       { id: "tabLayout", title: "Show Tabs in Sidebar", symbol: "sidebar.left", checked: (w?.tabLayout ?? s.settings.tabLayout) === "sidebar", ...menuShortcut("toggleTabLayout", s) },
       { id: "autoHide", title: "Auto-Hide Tabs", checked: !!w && !w.sidebarOpen, ...menuShortcut("toggleSidebar", s) },
     ],
@@ -32,7 +34,7 @@ export function sidebarMenuItems(s: BrowserState, windowId: string): MenuItem[] 
 
 export async function openSidebarMenu(windowId: string) {
   const choice = await showMenu(sidebarMenuItems(store(), windowId));
-  if (!choice || runNewLiveFolder(windowId, choice)) return;
+  if (!choice || runNewLiveFolder(windowId, choice) || runPinnedFold(windowId, choice)) return;
   const s = store();
   if (choice === "newTab") {
     if (!toggleNewTabBar(windowId)) s.newTab(windowId, { newTabCommand: true });
