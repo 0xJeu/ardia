@@ -314,6 +314,7 @@ ARDIACORE_EXPORT
 - (BOOL)hasLiveFrame:(NSString*)frameId;
 - (void)callPage:(NSString*)kind json:(NSString*)json;
 - (void)callFrame:(NSString*)frameId kind:(NSString*)kind json:(NSString*)json;
+- (void)grantUserActivationToFrame:(NSString*)frameId;
 @property(nonatomic, nullable) NSColor* pageBackgroundColor;
 @property(nonatomic, copy, nullable) NSString* pageColor;
 @property(nonatomic, nullable) NSColor* contentsBackgroundColor;

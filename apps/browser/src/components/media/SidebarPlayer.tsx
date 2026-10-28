@@ -20,8 +20,9 @@ const CORNER_BUTTON_SIZE = 18;
 export function useSidebarPlayerTab(windowId: string, profileId: string): string | undefined {
   const sessions = useMedia(useShallow((m) => Object.keys(m.sessions)));
   const hidden = useHiddenPlayerTabs(windowId, profileId, sessions);
+  const candidates = useMedia(useShallow((m) => hidden.filter((id) => !m.leftPaused[id])));
   const shown = useRef<string | undefined>(undefined);
-  shown.current = useMedia((m) => playerTabFor(m, hidden, shown.current));
+  shown.current = useMedia((m) => playerTabFor(m, candidates, shown.current));
   return shown.current;
 }
 

@@ -203,8 +203,9 @@
       return setPositionState.apply(this, arguments);
     };
   }
+  const playableMedia = (all) => all.find((m) => m.currentSrc || m.srcObject || m.src || m.querySelector("source[src]")) || null;
   handlers.media = ({ action, seconds }) => {
-    const el = pickMedia();
+    const el = pickMedia() || playableMedia([...document.querySelectorAll("video,audio")]);
     const call = (name, details) => {
       const h = actions.get(name);
       if (!h) return false;
