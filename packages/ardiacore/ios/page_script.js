@@ -919,18 +919,37 @@
     }
     return null;
   };
+  const fromHex = (value) => {
+    const n = parseInt(value.slice(1, 7), 16);
+    return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255, a: 1 };
+  };
+  const relativeLuminance = (c) => {
+    const linear = (v) => ((v /= 255) <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4);
+    return 0.2126 * linear(c.r) + 0.7152 * linear(c.g) + 0.0722 * linear(c.b);
+  };
+  const clearlyLight = (c) => relativeLuminance(c) >= 0.5;
+  const takesLightInk = (c) => {
+    const l = relativeLuminance(c) + 0.05;
+    return 1.05 / l >= l / 0.05;
+  };
   let lastTheme;
   let metaCache;
+  let lightMetaOnDarkPage = false;
   const cachedMetaColor = () => (metaCache === undefined ? (metaCache = metaColor(scheduleTheme)) : metaCache);
   const reportTheme = guard(() => {
     if (!document.documentElement) return;
-    let color = cachedMetaColor();
-    let source = color ? "meta" : null;
-    if (!color && document.body) {
+    const meta = cachedMetaColor();
+    let color = meta;
+    let source = meta ? "meta" : null;
+    lightMetaOnDarkPage = false;
+    if (document.body && (!meta || clearlyLight(fromHex(meta)))) {
       const page = pageBackground();
       const header = headerColor(page);
-      color = hex(header || page);
-      source = header ? "header" : "background";
+      lightMetaOnDarkPage = !!meta && takesLightInk(page);
+      if (!meta || (lightMetaOnDarkPage && (!header || takesLightInk(header)))) {
+        color = hex(header || page);
+        source = header ? "header" : "background";
+      }
     }
     const key = color + source;
     if (key === lastTheme) return;
@@ -985,7 +1004,7 @@
   let scrollSettle = 0;
   let scrollSettled = false;
   const sampleScroll = guard((settled) => {
-    if (!document.documentElement || cachedMetaColor()) return;
+    if (!document.documentElement || (cachedMetaColor() && !lightMetaOnDarkPage)) return;
     const past = window.scrollY > 4;
     const now = performance.now();
     if (!settled && past === scrolledPastTop && now - scrollSampledAt < 150) return;
@@ -1006,7 +1025,7 @@
     );
   };
   const scrollTheme = () => {
-    if (metaCache) return;
+    if (metaCache && !lightMetaOnDarkPage) return;
     apply(clearTimer, window, [scrollSettle]);
     scrollSettle = after(() => {
       scrollSettled = true;
