@@ -96,6 +96,9 @@ export const createUiSlice: StateCreator<BrowserState, [], [], UiSlice> = (set, 
   upsertDownload(d) {
     set((s) => {
       const exists = s.downloads.some((x) => x.id === d.id);
+      if (!d.path && (d.state === "downloading" || d.state === "cancelled")) {
+        return exists && d.state === "cancelled" ? { downloads: s.downloads.filter((x) => x.id !== d.id) } : {};
+      }
       const session = downloadSession(d);
       if (!exists && session !== null && (!sessionOpen(s, session) || endedPrivateDownloads.has(d.id))) {
         endedPrivateDownloads.add(d.id);
