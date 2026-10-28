@@ -24,6 +24,7 @@ import { shallowEqual, useBrowserWhile, useProfilesValue, useTabValue } from "..
 import { engineProfile, isIncognitoProfile, navigationTo } from "../../state/browser/model";
 import type { Tab } from "../../state/browser/types";
 import { dismissPermissions } from "../../state/site/permissions";
+import { zoomChangedByUser } from "../../state/site/zoomBubble";
 import { markTabReady, patchPage, pageOf, popoverOf, setPopover } from "../../state/tabs/pageState";
 import { closeFolderPanelIn } from "../../state/sidebar/tileFolderUi";
 import { answerExternalApp, shouldPromptForPopups, showAutofillPrompt, showPasswordPrompt } from "../site/Prompts";
@@ -184,7 +185,10 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
         downloadNavigated(tabId, committedUrl, skipped);
       }}
       onProgress={(progress) => !prewarmOnly() && setPageProgress(tabId, progress)}
-      onZoom={({ zoom }) => updateTab(tabId, { zoom })}
+      onZoom={({ zoom, user }) => {
+        updateTab(tabId, { zoom });
+        if (user) zoomChangedByUser(tabId);
+      }}
       onFindResult={({ count, active }) => setFind(tabId, { count, active })}
       onFavicon={(favicon) => {
         if (!favicon || !tab()) return;

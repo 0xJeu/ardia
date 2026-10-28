@@ -274,12 +274,12 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
     if direction < 0 { next = Self.zoomLevels.last { $0 < current - 0.001 } ?? current }
     view.pageZoom = next
     if !host.isEmpty { WebKitHub.shared.setZoom(next, profile: profile, host: host) }
-    emitZoom()
+    emitZoom(byUser: abs(next - current) > 0.001)
   }
 
-  private func emitZoom() {
+  private func emitZoom(byUser user: Bool = false) {
     guard let view = webView else { return }
-    emit("zoom", ["zoom": view.pageZoom, "host": host, "isDefault": abs(view.pageZoom - 1) < 0.001, "pinchScale": view.magnification])
+    emit("zoom", ["zoom": view.pageZoom, "host": host, "isDefault": abs(view.pageZoom - 1) < 0.001, "pinchScale": view.magnification, "user": user])
   }
 
   func find(_ text: String, forward: Bool, findNext: Bool) {
