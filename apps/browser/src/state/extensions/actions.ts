@@ -15,7 +15,8 @@ import {
   type InstalledExtension,
 } from "../../platform/extensions";
 import { confirm } from "../../platform/dialogs";
-import { showMenu } from "../../platform/menus";
+import { showMenu, type MenuItem } from "../../platform/menus";
+import { menuSections } from "../app/menuSections";
 import { openWindow } from "../browser/actions";
 import { webviews } from "../../platform/webviews";
 import { useBrowser, type BrowserState } from "../browser/store";
@@ -251,27 +252,46 @@ export async function openActionPopup(windowId: string, extensionId: string, anc
   useExtensions.setState({ popup: { windowId, pageProfile: pageProfile(useBrowser.getState(), windowId), extensionId, url, anchor, opened: request } });
 }
 
+export function extensionMenuItems(ext: Pick<InstalledExtension, "name" | "enabled" | "pinned" | "optionsUrl" | "sidePanel" | "mayModify">, sidePanelOpen: boolean): MenuItem[] {
+  return menuSections(
+    [{ id: "name", title: ext.name, enabled: false }],
+    [
+      { id: "options", title: "Options", symbol: "gearshape", enabled: !!ext.optionsUrl && ext.enabled },
+      !!ext.sidePanel && ext.enabled && { id: "sidePanel", title: sidePanelOpen ? "Close Side Panel" : "Open Side Panel", symbol: "sidebar.right" },
+      { id: "pin", title: ext.pinned ? "Unpin from Toolbar" : "Pin to Toolbar", symbol: ext.pinned ? "pin.slash" : "pin" },
+    ],
+    [
+      { id: "enable", title: ext.enabled ? "Turn Off" : "Turn On", symbol: "power" },
+      { id: "manage", title: "Manage Extension", symbol: "puzzlepiece.extension" },
+    ],
+    [{ id: "remove", title: "Remove Extension…", symbol: "trash", enabled: ext.mayModify }],
+  );
+}
+
 export async function showExtensionMenu(windowId: string, ext: InstalledExtension) {
   const profile = extensionProfile(useBrowser.getState(), windowId);
-  const choice = await showMenu([
-    { id: "name", title: ext.name, enabled: false },
-    { separator: true },
-    { id: "options", title: "Options", enabled: !!ext.optionsUrl && ext.enabled },
-    ...(ext.sidePanel && ext.enabled
-      ? [{ id: "sidePanel", title: useExtensions.getState().sidePanels[windowId]?.extensionId === ext.id ? "Close Side Panel" : "Open Side Panel" }]
-      : []),
-    { id: "pin", title: ext.pinned ? "Unpin from Toolbar" : "Pin to Toolbar", symbol: ext.pinned ? "pin.slash" : "pin" },
-    { id: "enable", title: ext.enabled ? "Turn Off" : "Turn On" },
-    { separator: true },
-    { id: "remove", title: "Remove Extension…", enabled: ext.mayModify },
-    { id: "manage", title: "Manage Extensions…" },
-  ]);
+  const choice = await showMenu(extensionMenuItems(ext, useExtensions.getState().sidePanels[windowId]?.extensionId === ext.id));
   if (choice === "options") openOptions(windowId, ext);
   if (choice === "pin") void setPinned(profile, ext.id, !ext.pinned);
   if (choice === "enable") void setEnabled(profile, ext.id, !ext.enabled);
   if (choice === "remove") void removeExtension(profile, ext, windowId);
   if (choice === "sidePanel") void toggleSidePanel(windowId, ext.id);
+  if (choice === "manage") {
+    openExtensionDetails(extensionsProfileId(null, windowId), ext.id);
+    openSettings();
+  }
+}
+
+export const EXTENSION_LIST_ITEMS: MenuItem[] = [
+  { id: "add", title: "Add Extension…", symbol: "plus" },
+  { id: "manage", title: "Manage Extensions…", symbol: "puzzlepiece.extension" },
+  { id: "pin", title: "Pin Extensions…", symbol: "pin" },
+];
+
+export function runExtensionListChoice(choice: string | null, windowId: string) {
+  if (choice === "add") openWebStore(windowId);
   if (choice === "manage") openManageExtensions(windowId);
+  if (choice === "pin") openPinDialog(windowId);
 }
 
 function message(error: unknown): string {

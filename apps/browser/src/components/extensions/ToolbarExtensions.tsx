@@ -12,9 +12,8 @@ import { BADGE_FALLBACK_FILL, BADGE_TEXT } from "./tokens";
 import { dropToolbarAnchor, setToolbarAnchor } from "../../state/extensions/bridge";
 import {
   activateExtension,
-  openManageExtensions,
-  openPinDialog,
-  openWebStore,
+  EXTENSION_LIST_ITEMS,
+  runExtensionListChoice,
   showExtensionMenu,
   useExtensions,
   useWindowExtensions,
@@ -221,13 +220,9 @@ function OverflowButton({ windowId, tabId, palette, button }: { windowId: string
     const choice = await showMenu([
       ...enabled.map((x) => ({ id: `open:${x.id}`, title: x.name, symbol: x.pinned ? "pin.fill" : undefined })),
       ...(enabled.length ? [{ separator: true as const }] : []),
-      { id: "pin", title: "Pin Extensions…", symbol: "pin" },
-      { id: "manage", title: "Manage Extensions…", symbol: "puzzlepiece.extension" },
-      { id: "add", title: "Add Extension…", symbol: "plus" },
+      ...EXTENSION_LIST_ITEMS,
     ]);
-    if (choice === "pin") return openPinDialog(windowId);
-    if (choice === "manage") return openManageExtensions(windowId);
-    if (choice === "add") return openWebStore(windowId);
+    runExtensionListChoice(choice, windowId);
     const ext = choice?.startsWith("open:") ? enabled.find((x) => x.id === choice.slice(5)) : undefined;
     if (ext) void activateExtension(windowId, ext, anchor, undefined, tabId);
   };
