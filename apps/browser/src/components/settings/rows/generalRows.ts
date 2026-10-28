@@ -250,6 +250,21 @@ export const generalRows: Pick<Record<SettingsPane, SettingSection[]>, "general"
       },
     },
     {
+      section: "Bookmarks Bar",
+      rows: {
+        bookmarksBar: {
+          title: "Show bookmarks bar",
+          description: "Below the toolbar. Also in View › Show Bookmarks Bar, ⇧⌘B.",
+          keywords: ["bookmarks bar", "favorites bar", "favourites bar", "toolbar", "hide bookmarks", "show bookmarks"],
+        },
+        bookmarksBarSize: {
+          title: "Size",
+          description: "Large makes the bar, its icons and its text bigger, and its folder menus roomier.",
+          keywords: ["bookmarks bar", "bigger", "larger", "large", "small", "text size", "icon size", "readability", "favorites bar"],
+        },
+      },
+    },
+    {
       section: "Selected Tab",
       rows: {
         selectedTabGlow: {

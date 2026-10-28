@@ -75,6 +75,7 @@ export type Settings = {
   allowJavaScriptFromAppleEvents: boolean;
   cliControl: boolean;
   bookmarksBar: "always" | "newTab" | "never";
+  bookmarksBarSize: "default" | "large";
   hideBookmarksBarImport: boolean;
 
   appearance: "auto" | "light" | "dark";
@@ -172,6 +173,7 @@ export const DEFAULT_SETTINGS: Settings = {
   allowJavaScriptFromAppleEvents: false,
   cliControl: false,
   bookmarksBar: "never",
+  bookmarksBarSize: "default",
   hideBookmarksBarImport: false,
   appearance: "auto",
   addressBar: "toolbar",
