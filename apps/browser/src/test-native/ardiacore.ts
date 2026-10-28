@@ -453,6 +453,7 @@ const fakeModules = {
     setPeekModifier: () => null,
     setSplitLinkModifier: () => null,
     setSelectionPopover: () => null,
+    setCommandScrollZoom: () => null,
     setAutoPictureInPicture: () => null,
     setVideoUpscaling: () => null,
     setVideoUpscalingTestConditions: () => null,

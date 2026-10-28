@@ -45,6 +45,7 @@ export const SYNCED_SETTINGS = [
   "cleanUpInactiveTabsAfterMinutes",
   "mutedSites",
   "autoPictureInPicture",
+  "commandScrollZoom",
   "videoUpscaling",
   "sidebarMediaControls",
   "profileSwitcherIcons",

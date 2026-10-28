@@ -796,6 +796,39 @@
     }
   } catch (e) {}
 
+  try {
+    const getterOf = (proto, name) => {
+      const get = Object.getOwnPropertyDescriptor(proto, name).get;
+      return (o) => apply(get, o, []);
+    };
+    const withCommand = getterOf(MouseEvent.prototype, "metaKey");
+    const cancelable = getterOf(Event.prototype, "cancelable");
+    const prevented = getterOf(Event.prototype, "defaultPrevented");
+    const deltaY = getterOf(WheelEvent.prototype, "deltaY");
+    const cancel = Event.prototype.preventDefault;
+    const listen = EventTarget.prototype.addEventListener;
+    const unlisten = EventTarget.prototype.removeEventListener;
+    const blocking = { passive: false };
+    let armed = false;
+    const disarm = () => {
+      if (!armed) return;
+      armed = false;
+      apply(unlisten, window, ["wheel", onCommandWheel, blocking]);
+    };
+    const onCommandWheel = guard((e) => {
+      if (!withCommand(e)) return disarm();
+      const handled = prevented(e) || !cancelable(e);
+      if (!handled) apply(cancel, e, []);
+      send("commandWheel", { handled, dy: deltaY(e) });
+    });
+    handlers.commandWheel = (message) => {
+      if (!(message && message.armed)) return disarm();
+      if (armed) return;
+      armed = true;
+      apply(listen, window, ["wheel", onCommandWheel, blocking]);
+    };
+  } catch (e) {}
+
   handlers.config = (config) => {
     handlers.peekConfig({ modifier: config.peek, split: config.split, trace: config.peekTrace });
     blockAutoplay = !!config.blockAutoplay;
