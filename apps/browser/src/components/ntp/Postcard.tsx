@@ -20,6 +20,7 @@ import {
 import { useEffect, useRef, useState } from "react";
 import { AccessibilityInfo, Animated, Image, Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { profileAccent } from "../ui/theme";
+import { mix } from "../../lib/color";
 import { useWindowProfileValue } from "../../state/profiles/hooks";
 import { useWindowId } from "../../state/browser/hooks";
 import type { ReleaseNotes } from "../../state/releaseNotes/releaseNotes";
@@ -45,11 +46,6 @@ function useArtworkColors(): [string, string] {
   const windowId = useWindowId();
   const swatch = useWindowProfileValue(windowId, profileAccent);
   return [mix(swatch, postcard.artworkLight, 0.45), mix(swatch, postcard.artworkDark, 0.5)];
-}
-
-function mix(a: string, b: string, t: number) {
-  const ch = (h: string, i: number) => parseInt(h.slice(1 + 2 * i, 3 + 2 * i), 16);
-  return `#${[0, 1, 2].map((i) => Math.round(ch(a, i) + (ch(b, i) - ch(a, i)) * t).toString(16).padStart(2, "0")).join("")}`;
 }
 
 export function ReleaseNotesPostcard({ notes, size, onOpen, onDismiss }: { notes: ReleaseNotes; size: { width: number; height: number }; onOpen: () => void; onDismiss: () => void }) {

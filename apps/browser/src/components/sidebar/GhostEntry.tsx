@@ -15,7 +15,8 @@ import { pointerOnGroup, pointerOnRow } from "../../state/sidebar/hover";
 import { FaviconFallback, NewTabIcon } from "../favicon/Favicon";
 import { TabIcon } from "./TabIcon";
 import { SYMBOL_PREFIX } from "../../state/groups/groupIcons";
-import { groupSurface, TABULAR_NUMS, useSidebarTokens, withAlpha } from "./tokens";
+import { groupSurface, TABULAR_NUMS, useSidebarTokens } from "./tokens";
+import { withAlpha } from "../../lib/color";
 
 type TabShot = { kind: "tab"; key: string; title: string; url: string; favicon?: string | null; icon?: string | null; profileId: string; uri: string | null; template: boolean; sound: "muted" | "playing" | null; hovered: boolean };
 type SplitShot = { kind: "split"; key: string; panes: TabShot[] };

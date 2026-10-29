@@ -24,7 +24,8 @@ import { openGroupMenu } from "../../state/sidebar/menus";
 import { registerRow, useSidebarUi } from "../../state/sidebar/sidebarUi";
 import { TabIcon } from "./TabIcon";
 import { RenameField, SplitRowItem, TabRowItem } from "./TabRow";
-import { groupSurface, TABULAR_NUMS, useSidebarTokens, withAlpha } from "./tokens";
+import { groupSurface, TABULAR_NUMS, useSidebarTokens } from "./tokens";
+import { withAlpha } from "../../lib/color";
 import { curve } from "../ui/motion";
 
 const PAD = GROUP_PAD;

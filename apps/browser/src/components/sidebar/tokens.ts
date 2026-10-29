@@ -1,9 +1,8 @@
-import { layout, useTheme } from "../ui/theme";
+import { useTheme } from "../ui/theme";
 import { colorRoles, ink, shadow, type ShadowLevel } from "../ui/tokens";
-import { useSettings } from "../../state/browser/hooks";
 import type { GroupColor } from "../../state/browser/types";
 import { GROUP_COLORS } from "../../state/groups/tokens";
-import { useSidebarUi } from "../../state/sidebar/sidebarUi";
+import { withAlpha } from "../../lib/color";
 
 const DARK = {
   groupFill: "rgba(255,255,255,0.1)",
@@ -103,16 +102,5 @@ export function groupSurface(color: GroupColor | null | undefined, tokens: Sideb
   return tint ? { fill: withAlpha(tint, 0.16), stroke: withAlpha(tint, 0.3) } : { fill: tokens.groupFill, stroke: tokens.groupStroke };
 }
 
-export function withAlpha(hex: string, alpha: number): string {
-  const n = parseInt(hex.slice(1, 7), 16);
-  return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`;
-}
-
 export const SIDEBAR_MIN_WIDTH = 160;
 export const SIDEBAR_MAX_WIDTH = 400;
-
-export function useSidebarWidth(windowId: string): number {
-  const saved = useSettings((st) => st.sidebarWidth ?? layout.sidebarWidth);
-  const dragging = useSidebarUi((u) => u.dragWidth[windowId]);
-  return dragging ?? saved;
-}
