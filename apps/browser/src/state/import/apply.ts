@@ -21,11 +21,12 @@ import { engineProfile, isIncognitoProfile } from "../browser/model";
 import { openPages, pageKey, pinnedPages, tilePages } from "../tabs/pageKeys";
 import { withNewTab } from "../tabs/tabs";
 import type { ProfileColor } from "../browser/types";
-import { adoptProfileTheme } from "../sync/engine";
+import { setProfileTheme } from "../profiles/themeActions";
 import { parseArcTheme } from "./arcTheme";
 import { newProfileLiveFolder } from "../live/engine";
 import { live } from "../live/store";
 import type { LiveSourceId } from "../live/types";
+import { isWebPageUrl } from "../../lib/url";
 
 export type { BrowserProfile, BrowserSource, DiaTabsResult, ImportedExtension, ImportKind, ImportResult, SpaceSummary } from "../../platform/importModule";
 
@@ -198,10 +199,7 @@ export function importArcSpace(profileId: string, space: SpaceSuggestion, favico
   );
   tabs += importTabs(profileId, space.tabs.map((t) => ({ ...t, pinned: false })), "Imported");
   const theme = space.theme ? parseArcTheme(space.theme) : null;
-  if (theme) {
-    adoptProfileTheme(profileId);
-    useBrowser.getState().updateProfile(profileId, { theme });
-  }
+  if (theme) setProfileTheme(profileId, theme);
   if (!folders.length) return { tabs, bookmarks: 0, skipped: 0 };
   const { made, skipped } = addGroupsFromDrafts(profileId, folders.map(toGroupDraft), windowFor(profileId));
   const groups = useBrowser.getState().groups;

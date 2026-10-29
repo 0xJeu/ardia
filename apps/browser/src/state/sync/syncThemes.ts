@@ -18,7 +18,7 @@ function settledTheme(app: ScopeState, syncId: string): boolean {
 
 export function pairTheme(app: ScopeState, profileId: string, link: ProfileLink) {
   const theme = pairedTheme(app, link.syncId);
-  if (theme) useBrowser.getState().updateProfile(profileId, theme);
+  if (theme) useBrowser.getState().setProfileLook(profileId, theme);
   if (settledTheme(app, link.syncId)) delete link.themeAdopting;
   else link.themeAdopting = true;
 }

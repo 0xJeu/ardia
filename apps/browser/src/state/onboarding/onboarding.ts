@@ -8,6 +8,7 @@ import type { Settings } from "../settings/settings";
 import type { ProfileColor, ProfileTheme } from "../browser/types";
 import { PRESETS, presetFor, setsUpLikeBrowser, type BrowserSourceId, type Preset } from "./presets";
 import { endToolTour, startToolTour } from "./tour";
+import { choosePresetColor, setProfileTheme } from "../profiles/themeActions";
 import { stepsForThisSurface } from "./demoSteps";
 import { parseSaved, unchanged, versionedJson, type Migrations } from "../../lib/savedDocument";
 
@@ -207,7 +208,7 @@ export function previewColor(color: ProfileColor) {
   const profileId = windowId ? b.windows[windowId]?.profileId : undefined;
   if (!profileId) return;
   recordLookBaseline(profileId);
-  b.updateProfile(profileId, { color, theme: null });
+  choosePresetColor(profileId, color);
 }
 
 export function previewTheme(theme: ProfileTheme) {
@@ -216,7 +217,7 @@ export function previewTheme(theme: ProfileTheme) {
   const profileId = windowId ? b.windows[windowId]?.profileId : undefined;
   if (!profileId) return;
   recordLookBaseline(profileId);
-  b.updateProfile(profileId, { theme });
+  setProfileTheme(profileId, theme);
 }
 
 function recordLookBaseline(profileId: string) {
@@ -266,7 +267,7 @@ function revertLive(keys: readonly (keyof LiveBaseline)[]) {
   const window = windowId ? b.windows[windowId] : undefined;
   if (tabLayout && windowId) setWindowLayout(windowId, tabLayout);
   if (Object.keys(rest).length) b.updateSettings(rest, { fromSync: true });
-  if ((color || "theme" in restore) && window) b.updateProfile(window.profileId, { ...(color ? { color } : {}), ...("theme" in restore ? { theme } : {}) });
+  if ((color || "theme" in restore) && window) b.setProfileLook(window.profileId, { ...(color ? { color } : {}), ...("theme" in restore ? { theme } : {}) });
   const kept = { ...baseline };
   for (const key of keys) delete kept[key];
   useOnboarding.setState({ baseline: kept });

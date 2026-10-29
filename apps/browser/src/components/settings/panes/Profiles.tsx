@@ -238,7 +238,7 @@ export function ProfileDetailsPane({ profileId }: { profileId: string }) {
   const stats = useProfileDataStats(profileId);
   const [name, setName] = useState(profile?.name ?? "");
   if (!profile) return null;
-  const update = (patch: Partial<Pick<Profile, "name" | "color" | "icon">>) => updateProfile(profileId, patch);
+  const update = (patch: Partial<Pick<Profile, "name" | "icon">>) => updateProfile(profileId, patch);
   const commitName = () => (name.trim() ? update({ name: name.trim() }) : setName(profile.name));
   const sharing = shared.length > 1;
 

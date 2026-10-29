@@ -67,7 +67,8 @@ export function profilesAdapter(links: () => Record<string, { syncId: string }>)
         const record = visible.get(`prof:${syncId}`) as ProfileRecord | undefined;
         if (!record || !changed.has(`prof:${syncId}`)) continue;
         const legacy = store().profiles[id]!.theme === undefined && !records.known(`pth:${syncId}`) ? legacyThemeOf(record) : null;
-        store().updateProfile(id, { name: record.n, color: record.c, icon: record.i, ...legacy });
+        store().updateProfile(id, { name: record.n, icon: record.i });
+        store().setProfileLook(id, { color: record.c, ...legacy });
       }
     },
   };
@@ -106,7 +107,7 @@ export function profileThemesAdapter(
         if (!changed.has(`pth:${syncId}`) && !changed.has(angleKey)) continue;
         const patch = themeFromRecord(visible.get(`pth:${syncId}`), visible.get(angleKey));
         if (!patch) continue;
-        store().updateProfile(id, patch);
+        store().setProfileLook(id, patch);
         adopted(id);
       }
     },

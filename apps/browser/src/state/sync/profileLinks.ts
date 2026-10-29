@@ -83,7 +83,7 @@ export function addLinkedProfile(doc: SyncDoc, syncId: string, record: ProfileRe
   if (app) pairTheme(app, id, doc.profiles[id]!);
   else {
     const theme = legacyThemeOf(record);
-    if (theme) useBrowser.getState().updateProfile(id, theme);
+    if (theme) useBrowser.getState().setProfileLook(id, theme);
     doc.profiles[id]!.themeAdopting = true;
   }
   doc.scopes[`p:${syncId}`] = { ...emptyScope(), awaitRemote: true };

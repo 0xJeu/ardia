@@ -12,7 +12,8 @@ export type ProfilesSlice = {
   orphanedProfileData: string[];
 
   createProfile(options: { name: string; color?: ProfileColor; icon?: string | null; shareWith?: string | null }): string;
-  updateProfile(id: string, patch: Partial<Pick<Profile, "name" | "color" | "icon" | "theme" | "pinnedCollapsed">>): void;
+  updateProfile(id: string, patch: Partial<Pick<Profile, "name" | "icon" | "pinnedCollapsed">>): void;
+  setProfileLook(id: string, look: Partial<Pick<Profile, "color" | "theme">>): void;
   deleteProfile(id: string): void;
   reorderProfiles(ids: string[]): void;
   setDefaultProfile(id: string): void;
@@ -102,6 +103,10 @@ export const createProfilesSlice: StateCreator<BrowserState, [], [], ProfilesSli
 
     updateProfile(id, patch) {
       set((s) => (s.profiles[id] ? { profiles: { ...s.profiles, [id]: { ...s.profiles[id]!, ...patch } } } : {}));
+    },
+
+    setProfileLook(id, look) {
+      set((s) => (s.profiles[id] ? { profiles: { ...s.profiles, [id]: { ...s.profiles[id]!, ...look } } } : {}));
     },
 
     deleteProfile(id) {
