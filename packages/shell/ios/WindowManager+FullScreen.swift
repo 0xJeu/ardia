@@ -43,7 +43,7 @@ extension WindowManager {
   }
 
   private func giveUpFullScreen(_ id: String) {
-    if !fullScreenIds.contains(id) { emit?("onWindowEvent", ["type": "fullScreen", "id": id, "on": false]) }
+    if !fullScreenIds.contains(id) { ShellEvents.send(.window, ["type": "fullScreen", "id": id, "on": false]) }
     fullScreenQueue.removeAll { $0 == id }
     nextFullScreen()
   }
@@ -61,7 +61,7 @@ extension WindowManager {
     let entered = notification.name == NSWindow.didEnterFullScreenNotification
     if entered { fullScreenIds.insert(id) } else { fullScreenIds.remove(id) }
     if isMainWindow(window) {
-      emit?("onWindowEvent", ["type": "fullScreen", "id": id, "on": entered && !ChromeWindows.fullScreenIsForPage(window)])
+      ShellEvents.send(.window, ["type": "fullScreen", "id": id, "on": entered && !ChromeWindows.fullScreenIsForPage(window)])
     }
     if entered, fullScreenEntering == id { enteredFullScreen(id) }
   }

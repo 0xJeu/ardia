@@ -4,7 +4,6 @@ import { webviews } from "../../platform/webviews";
 import { useBrowser } from "../browser/store";
 import { activeTabId } from "../browser/model";
 import { holderOf, shareKeyOf } from "./pinShare";
-import { setPinHandoff } from "../tabs/tabsSlice";
 
 const CAPTURE_DEADLINE_MS = 250;
 const PAINT_DEADLINE_MS = 120;
@@ -20,7 +19,8 @@ const interactionIn = (windowId: string) => interactions.get(windowId) ?? 0;
 const painted = new Map<string, () => void>();
 export const notePainted = (windowId: string) => painted.get(windowId)?.();
 let requests = 0;
-let started = false;
+let users = 0;
+let stopWatching = () => {};
 
 const store = () => useBrowser.getState();
 const later = (ms: number) => new Promise<null>((done) => setTimeout(() => done(null), ms));
@@ -100,13 +100,12 @@ async function handOff(copyId: string, commit: () => void): Promise<boolean> {
   return still;
 }
 
+export const handOffPinPage = (copyId: string, commit: () => void) => (users > 0 ? void handOff(copyId, commit) : commit());
+
 export const requestPinHandOff = (copyId: string) => handOff(copyId, () => store().handOffPin(copyId));
 
 export function startPinHandoff() {
-  if (started) return;
-  started = true;
-  setPinHandoff((copyId, commit) => void handOff(copyId, commit));
-  useBrowser.subscribe((s, prev) => {
+  if (users++ === 0) stopWatching = useBrowser.subscribe((s, prev) => {
     if (s.windows !== prev.windows || s.windowUi !== prev.windowUi) {
       for (const [id, w] of Object.entries(s.windows)) {
         const was = prev.windows[id];
@@ -122,4 +121,7 @@ export function startPinHandoff() {
     for (const id of gone) delete next[id];
     useFrozenPages.setState({ frames: next });
   });
+  return () => {
+    if (--users === 0) stopWatching();
+  };
 }

@@ -6,7 +6,7 @@ import { DEV_SEND_TEST_KEY, LOGS_URL, MAX_BODY_BYTES } from "./config";
 import { EVENTS_SCOPE, eventRecord, LOGS_SCOPE, logRecord, logsRequest, outcome, type OtlpLogRecord, type QueuedEvent } from "./otlp";
 import { cleanProperties } from "./sanitize";
 import { logRequest, type RequestLogEntry } from "./requestLog";
-import { versionedJson, unchanged, upgraded, type Migrations } from "../../lib/savedDocument";
+import { parseSaved, versionedJson, unchanged, type Migrations, type SavedObject } from "../../lib/savedDocument";
 
 const STATE_DOC = "telemetry.json";
 const QUEUE_DOC = "telemetry-queue.json";
@@ -21,44 +21,55 @@ const FLUSH_DELAY_MS = 30_000;
 const URGENT_FLUSH_DELAY_MS = 3_000;
 const MAX_BACKOFF_MS = 30 * 60_000;
 
-type Saved = {
-  version: 1;
-  sharing: boolean;
+type Session = {
   decidedAt: number | null;
   askDoneAt: number | null;
-  installId: string | null;
   crashCursor: number;
   lastVersion: string | null;
   sessionOpen: boolean;
-  lastLaunchAt?: number | null;
-  lastQuitAt?: number | null;
-  lastBuild?: string | null;
+  lastLaunchAt: number | null;
+  lastQuitAt: number | null;
+  lastBuild: string | null;
 };
+type Sharing = { sharing: false; installId: null } | { sharing: true; installId: string };
+type Saved = Session & Sharing;
 
 const DEFAULT: Saved = {
-  version: 1,
   sharing: false,
+  installId: null,
   decidedAt: null,
   askDoneAt: null,
-  installId: null,
   crashCursor: 0,
   lastVersion: null,
   sessionOpen: false,
+  lastLaunchAt: null,
+  lastQuitAt: null,
+  lastBuild: null,
 };
 
-function readJson<T>(name: string): T | null {
-  try {
-    const json = readDocument(name);
-    return json ? (JSON.parse(json) as T) : null;
-  } catch {
-    return null;
-  }
+const numberOr = <T,>(v: unknown, fallback: T) => (typeof v === "number" && Number.isFinite(v) ? v : fallback);
+const stringOr = <T,>(v: unknown, fallback: T) => (typeof v === "string" ? v : fallback);
+
+function readSaved(doc: SavedObject | null): Saved {
+  if (!doc) return DEFAULT;
+  const sharing: Sharing = doc.sharing === true && typeof doc.installId === "string" && doc.installId ? { sharing: true, installId: doc.installId } : { sharing: false, installId: null };
+  return {
+    ...sharing,
+    decidedAt: numberOr(doc.decidedAt, null),
+    askDoneAt: numberOr(doc.askDoneAt, null),
+    crashCursor: numberOr(doc.crashCursor, 0),
+    lastVersion: stringOr(doc.lastVersion, null),
+    sessionOpen: doc.sessionOpen === true,
+    lastLaunchAt: numberOr(doc.lastLaunchAt, null),
+    lastQuitAt: numberOr(doc.lastQuitAt, null),
+    lastBuild: stringOr(doc.lastBuild, null),
+  };
 }
 
-let saved: Saved = { ...DEFAULT };
+let saved: Saved = DEFAULT;
 
-function save(patch: Partial<Saved>) {
-  saved = { ...saved, ...patch };
+function save(patch: Partial<Session> | (Partial<Session> & Sharing)) {
+  saved = { ...saved, ...patch } as Saved;
   try {
     writeDocument(STATE_DOC, versionedJson(saved, STATE_VERSION));
   } catch {}
@@ -101,17 +112,30 @@ function context(): Record<string, unknown> {
   };
 }
 
-type Queue = { version: 1; events: QueuedEvent[]; logs: OtlpLogRecord[] };
+type Queue = { events: QueuedEvent[]; logs: OtlpLogRecord[] };
 
-let queue: Queue = { version: 1, events: [], logs: [] };
+let queue: Queue = { events: [], logs: [] };
 let queueLoaded = false;
 let generation = 0;
+
+const isObject = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+const isEvent = (v: unknown): v is QueuedEvent =>
+  isObject(v) && typeof v.uuid === "string" && typeof v.event === "string" && typeof v.distinct_id === "string" && typeof v.timestamp === "string" && isObject(v.properties);
+const isLog = (v: unknown): v is OtlpLogRecord => isObject(v) && typeof v.timeUnixNano === "string" && isObject(v.body) && Array.isArray(v.attributes);
+
+function storedQueue(): Queue {
+  const doc = parseSaved(readDocument(QUEUE_DOC), QUEUE_VERSION);
+  return {
+    events: Array.isArray(doc?.events) ? doc.events.filter(isEvent) : [],
+    logs: Array.isArray(doc?.logs) ? doc.logs.filter(isLog) : [],
+  };
+}
 
 function loadQueue() {
   if (queueLoaded) return;
   queueLoaded = true;
-  const stored = upgraded(readJson(QUEUE_DOC), QUEUE_VERSION) as Queue | null;
-  if (stored) queue = { version: 1, events: [...(stored.events ?? []), ...queue.events], logs: [...(stored.logs ?? []), ...queue.logs] };
+  const stored = storedQueue();
+  queue = { events: [...stored.events, ...queue.events], logs: [...stored.logs, ...queue.logs] };
 }
 
 let persistTimer: ReturnType<typeof setTimeout> | undefined;
@@ -141,7 +165,7 @@ export function saveQueueNow(timeoutMs = 1000): Promise<void> {
 }
 
 function clearQueue() {
-  queue = { version: 1, events: [], logs: [] };
+  queue = { events: [], logs: [] };
   queueLoaded = true;
   clearTimeout(flushTimer);
   flushTimer = undefined;
@@ -157,7 +181,7 @@ export type CaptureOptions = {
 };
 
 export function capture(event: string, props: Record<string, unknown> = {}, options: CaptureOptions = {}) {
-  if (!saved.sharing || !saved.installId) {
+  if (!saved.sharing) {
     droppedWhileOff++;
     return;
   }
@@ -333,7 +357,7 @@ let loaded = false;
 export function loadChoice() {
   if (loaded) return;
   loaded = true;
-  saved = { ...DEFAULT, ...(upgraded(readJson(STATE_DOC), STATE_VERSION, STATE_MIGRATIONS) as Partial<Saved> | null) };
+  saved = readSaved(parseSaved(readDocument(STATE_DOC), STATE_VERSION, STATE_MIGRATIONS));
   useTelemetry.setState({ sharing: saved.sharing, decided: saved.decidedAt !== null, askDone: saved.askDoneAt !== null });
 }
 
@@ -351,8 +375,8 @@ export function startClient(): ClientSession | null {
     .then((e) => (engineVersion = `ArdiaCore / Chromium ${e.chromiumVersion}`))
     .catch(() => {});
   if (!saved.sharing) {
-    const stale = readJson<Queue>(QUEUE_DOC);
-    if (stale?.events?.length || stale?.logs?.length) clearQueue();
+    const stale = storedQueue();
+    if (stale.events.length || stale.logs.length) clearQueue();
     return null;
   }
   loadQueue();
@@ -361,7 +385,7 @@ export function startClient(): ClientSession | null {
   const updatedFrom = saved.lastVersion && saved.lastVersion !== version ? saved.lastVersion : null;
   const build = appInfo().appBuild;
   const firstOfVersion = saved.lastVersion !== version || (saved.lastBuild != null && saved.lastBuild !== build);
-  const last = { lastLaunchAt: saved.lastLaunchAt ?? null, lastQuitAt: saved.lastQuitAt ?? null, firstOfVersion };
+  const last = { lastLaunchAt: saved.lastLaunchAt, lastQuitAt: saved.lastQuitAt, firstOfVersion };
   save({ sessionOpen: true, lastVersion: version, lastBuild: build, lastLaunchAt: appInfo().processStart ?? Date.now() });
   scheduleFlush(10_000);
   return { previous, updatedFrom, ...last };

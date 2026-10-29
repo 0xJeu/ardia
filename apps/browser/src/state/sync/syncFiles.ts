@@ -1,6 +1,7 @@
 import { readDocument, removeDocument, saveDocument, writeDocument } from "../../platform/documents";
 import { Clock, emptyScope, restoreJournal, SyncNative, writtenSeq, type LogFile, type ScopeState, type SyncRecord } from "../../platform/sync";
 import { parseSaved, versionedJson } from "../../lib/savedDocument";
+import { profileScope } from "./records";
 import { APP_SCOPE, DOC, DOC_MIGRATIONS, DOC_VERSION, JOURNAL, STATE, defaultTypes, emptyDoc, type SyncDoc } from "./syncDoc";
 
 type Journal = Record<string, LogFile[]>;
@@ -121,7 +122,7 @@ export function syncFiles(current: () => SyncDoc) {
     const { scopes, covers, clock: savedClock } = isCheckpoint(opened) ? opened : { scopes: opened as SyncDoc["scopes"], covers: -1, clock: undefined };
     const parts = await readJournal();
     const doc = current();
-    const live = new Set([APP_SCOPE, ...Object.values(doc.profiles).map((link) => `p:${link.syncId}`)]);
+    const live = new Set([APP_SCOPE, ...Object.values(doc.profiles).map((link) => profileScope(link.syncId))]);
     const clock = new Clock(doc.deviceId ?? "", doc.clock);
     if (savedClock) clock.observe(savedClock);
     const batches: Journal = {};

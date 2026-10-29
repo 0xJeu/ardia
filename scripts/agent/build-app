@@ -16,7 +16,7 @@
 #   here (packages/*/ios, apps/browser/macos, the Pods, patches, the engine framework…), it prints
 #   "JS-only: Metro reloads it; no build needed" and exits 0. Pass --force to build anyway.
 # - Prints the errors (a failed build script with its last 30 lines), the warnings count, the result, the time and
-#   the .app path. The full log: <derived data>/build-app.log.
+#   `app: <path>` on its own line (scripts/agent/train reads it). The full log: <derived data>/build-app.log.
 # Builds into different derived data run in parallel (scripts/agent/locked --help). Run it with run_in_background.
 # Exits 0 when built (or nothing to build), 1 when the build failed, 75 when a lock stayed busy.
 set -uo pipefail

@@ -13,8 +13,7 @@ import { useState } from "react";
 import { Image, Pressable, View } from "react-native";
 import { useTheme } from "../ui/theme";
 import { webviews } from "../../state/tabs/webviewHandles";
-import { currentTab } from "../../state/browser/current";
-import { engineProfile } from "../../state/browser/model";
+import { currentEngineProfile, currentTab } from "../../state/browser/current";
 import { Button, MenuRow, MenuSeparator, PANEL, PanelCloseButton, Popover, Symbol, Text, useHover } from "../ui";
 import { answerPermission, describePermission } from "../../state/site/permissions";
 import { hostOrOrigin } from "../../lib/url";
@@ -89,7 +88,7 @@ export function BlockedPopupsPrompt({ tabId, right, left, top }: { tabId: string
     patchPage(tabId, { popups: [] });
     close();
   };
-  const profile = () => engineProfile(currentTab(tabId)?.profileId ?? "");
+  const profile = () => currentEngineProfile(currentTab(tabId)?.profileId ?? "");
   return (
     <Popover width={BLOCKED_POPUPS_WIDTH} top={top} right={right} left={left} onDismiss={close}>
       <View style={{ paddingBottom: PANEL.listPadding }}>

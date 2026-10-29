@@ -4,7 +4,7 @@ import { fromSync } from "../pins/pinOrderChoices";
 import { pinnedGroupMembers } from "../pins/pinHomes";
 import { pinKeyOf } from "../pins/pinMirror";
 import type { Tab } from "../browser/types";
-import { PIN_HOME, syncedHome, syncedHomeIn } from "./pinRecords";
+import { PIN_TAB, PIN_HOME, syncedHome, syncedHomeIn } from "./pinRecords";
 import { homeWindow, openWindows, store } from "./pinnedSyncState";
 
 function parkedAt<T extends { url: string; pinnedUrl?: string | null; restoreFrom?: string }>(p: T, home: string): T {
@@ -40,10 +40,10 @@ export function pinnedHomesAdapter(profileId: string): Adapter {
         }
       }
       for (const p of s.parkedPins[profileId]?.tabs ?? []) offer(p.id, !!p.groupId, p.pinnedUrl || p.url);
-      const unpinned = (key: string) => recorded(`pin:t:${key}`) && remote(`pin:t:${key}`) === null;
+      const unpinned = (key: string) => recorded(`${PIN_TAB}${key}`) && remote(`${PIN_TAB}${key}`) === null;
       return {
         values,
-        ignore: (k) => held.has(keyOf(k)) || (!known.has(keyOf(k)) && base(`pin:t:${keyOf(k)}`) === undefined && !unpinned(keyOf(k))),
+        ignore: (k) => held.has(keyOf(k)) || (!known.has(keyOf(k)) && base(`${PIN_TAB}${keyOf(k)}`) === undefined && !unpinned(keyOf(k))),
       } satisfies Extraction;
     },
     apply: (visible, changed, base) => {

@@ -4,10 +4,8 @@ import {
   getNeverSavePasswordOrigins,
   getPassword,
   listPasswords,
-  savePassword,
   setNeverSavePasswords,
   setPasswordAutofill,
-  unlockPasswords,
   updatePassword,
   type PasswordExportStatus,
   type SavedPassword,
@@ -18,10 +16,10 @@ import { Symbol, Button, font, PopUp, SearchField, Sheet, TextField, Toggle, wei
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
-import { currentSettings } from "../../../state/browser/current";
+import { currentEngineProfile, currentSettings } from "../../../state/browser/current";
 import { useProfiles } from "../../../state/browser/hooks";
-import { engineProfile, plural } from "../../../state/browser/model";
-import { importModule } from "../../../state/import/importApi";
+import { plural } from "../../../state/browser/model";
+import { importPasswordsCsv, unlockPasswordsFor, usePasswordsUnlocked } from "../../../state/site/savedPasswords";
 import { hostLabel, matchesQuery } from "../../pages/PageLayout";
 import { Favicon } from "../../favicon/Favicon";
 import { Group, Row, SectionHeader } from "../Form";
@@ -36,22 +34,17 @@ function passwordManagerAppsNote() {
     : `${apps} For 1Password, add Ardia once: in the 1Password app, open Settings › Browser › Add Browser and choose Ardia.`;
 }
 
-const UNLOCK_MS = 5 * 60_000;
-const unlockedUntil = new Map<string, number>();
-const isUnlocked = (profile: string) => Date.now() < (unlockedUntil.get(profile) ?? 0);
-
 export function PasswordsPane({ profileId: initial }: { profileId?: string | null }) {
   const theme = useTheme();
   const profiles = useProfiles();
   const [profileId, setProfileId] = useState(() => initial ?? currentSettings().defaultProfileId);
-  const [, setUnlockedAt] = useState(0);
   const [list, setList] = useState<SavedPassword[] | null>(null);
   const [never, setNever] = useState<string[]>([]);
   const [query, setQuery] = useState("");
   const [importStatus, setImportStatus] = useState("");
   const [exportStatus, setExportStatus] = useState("");
-  const profile = engineProfile(profileId);
-  const unlocked = isUnlocked(profile);
+  const profile = currentEngineProfile(profileId);
+  const unlocked = usePasswordsUnlocked(profile);
   const [autofill = true] = useResource(passwordAutofill, profile);
 
   const load = () => {
@@ -62,22 +55,12 @@ export function PasswordsPane({ profileId: initial }: { profileId?: string | nul
     if (unlocked) load();
   }, [unlocked, profileId]);
 
-  const unlock = async () => {
-    if (!(await unlockPasswords(profile).catch(orWarn(false)))) return;
-    unlockedUntil.set(profile, Date.now() + UNLOCK_MS);
-    setUnlockedAt(Date.now());
-  };
-
   const importCsv = async () => {
-    const mod = importModule();
-    if (!mod) return setImportStatus("Importing isn't available in this build.");
-    const path = await mod.chooseImportFile("passwordsCSV");
-    if (!path) return;
     try {
-      const creds = await mod.importPasswordsCSV(path);
-      let saved = 0;
-      for (const c of creds) if (c.url && c.password && (await savePassword(profile, originOf(c.url), c.username, c.password).catch(orWarn(false)))) saved++;
-      setImportStatus(`Imported ${plural(saved, "password")}.`);
+      const result = await importPasswordsCsv(profile);
+      if (result === "cancelled") return;
+      if (result === "unavailable") return setImportStatus("Importing isn't available in this build.");
+      setImportStatus(`Imported ${plural(result.saved, "password")}.`);
       load();
     } catch (e) {
       setImportStatus(`Couldn't import that file: ${(e as Error).message}`);
@@ -110,10 +93,10 @@ export function PasswordsPane({ profileId: initial }: { profileId?: string | nul
         <Row anchor="passwords.offerToSave">
           <Toggle value={autofill} onChange={(v) => void setPasswordAutofill(v, profile).then(() => store(passwordAutofill, [profile], v))} />
         </Row>
-        <Row anchor="passwords.importPasswords" description={importStatus || "From a CSV exported by Chrome, Safari, Firefox, 1Password, Bitwarden…"}>
+        <Row anchor="passwords.importPasswords" description={importStatus || undefined}>
           <Button title="Import CSV…" onPress={() => void importCsv()} />
         </Row>
-        <Row anchor="passwords.exportPasswords" description={exportStatus || "To a CSV file. Anyone who can open the file can read your passwords."}>
+        <Row anchor="passwords.exportPasswords" description={exportStatus || undefined}>
           <Button title="Export CSV…" onPress={() => void exportCsv()} />
         </Row>
         <Row anchor="passwords.managerApps" description={passwordManagerAppsNote()} />
@@ -124,7 +107,7 @@ export function PasswordsPane({ profileId: initial }: { profileId?: string | nul
           <Symbol name="lock.fill" size={26} color={theme.textTertiary} style={{ width: 36, height: 36 }} />
           <Text style={{ ...font.title, fontWeight: weight.medium, color: theme.textPrimary }}>Passwords are locked</Text>
           <Text style={{ ...font.small, color: theme.textSecondary }}>Unlock with Touch ID or your login password to see them.</Text>
-          <Button title="Unlock" kind="primary" onPress={() => void unlock()} style={{ marginTop: 6 }} />
+          <Button title="Unlock" kind="primary" onPress={() => void unlockPasswordsFor(profile)} style={{ marginTop: 6 }} />
         </View>
       ) : (
         <>
@@ -160,11 +143,6 @@ export function PasswordsPane({ profileId: initial }: { profileId?: string | nul
       )}
     </View>
   );
-}
-
-function originOf(url: string) {
-  const m = /^([a-z][a-z0-9+.-]*:\/\/[^/?#]+)/i.exec(url);
-  return m ? m[1]! : url;
 }
 
 function PasswordSheet({ profile, saved, onChanged }: { profile: string; saved: SavedPassword; onChanged: () => void }) {

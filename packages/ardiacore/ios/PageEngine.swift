@@ -97,8 +97,6 @@ enum PageEngines {
 
   static func owner(of id: String) -> PageEngine { all.first { $0.owns(id) } ?? chromium }
 
-  static func named(_ name: String?) -> PageEngine { name == "webkit" ? webKit : chromium }
-
   static func externalAppAllowances(profile: String, done: @escaping ([[String: Any]]) -> Void) {
     chromium.externalAppAllowances(profile: profile) { chromiumAllowances in
       webKit.externalAppAllowances(profile: profile) { webKitAllowances in

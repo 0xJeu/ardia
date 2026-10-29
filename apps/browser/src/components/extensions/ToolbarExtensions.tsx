@@ -9,6 +9,7 @@ import type { ToolbarPalette } from "../ui/toolbarColors";
 import { usePages } from "../../state/tabs/pageState";
 import { ink, opacity, radius, weight } from "../ui/tokens";
 import { BADGE_FALLBACK_FILL, BADGE_TEXT } from "./tokens";
+import { isLight } from "../../lib/color";
 import { dropToolbarAnchor, setToolbarAnchor } from "../../state/extensions/bridge";
 import {
   activateExtension,
@@ -187,11 +188,7 @@ function Badge({ text, color, textColor }: { text: string; color?: string | null
   );
 }
 
-function contrastText(hex: string) {
-  const n = parseInt(hex.slice(1, 7), 16);
-  const [r, g, b] = [(n >> 16) & 255, (n >> 8) & 255, n & 255];
-  return 0.299 * r + 0.587 * g + 0.114 * b > 160 ? ink.black : ink.white;
-}
+const contrastText = (fill: string) => (isLight(fill) ? ink.black : ink.white);
 
 function CastButton({ windowId, tabId, routes, palette, button }: { windowId: string; tabId: string; routes: CastRoute[]; palette: ToolbarPalette; button: number }) {
   const theme = useTheme();

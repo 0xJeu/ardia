@@ -2,8 +2,8 @@ import assert from "node:assert/strict";
 import { test } from "node:test";
 
 globalThis.__DEV__ = false;
-const { useBrowser } = await import("../state/browser/store.ts");
-const { webviewRef, webviews } = await import("./webviews.ts");
+const { useBrowser } = await import("../browser/store.ts");
+const { webviewRef, webviews } = await import("../../platform/webviews.ts");
 const { takeStartedNavigation } = await import("./earlyNavigate.ts");
 
 const S = () => useBrowser.getState();

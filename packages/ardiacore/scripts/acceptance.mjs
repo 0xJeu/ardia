@@ -1099,7 +1099,7 @@ try {
       const vis = (await cdp(t, "Runtime.evaluate", { expression: "document.visibilityState + '/' + document.hasFocus()", returnByValue: true })).result.value;
       throw new Error(`no context menu reported (page ${vis}); events: ${JSON.stringify((await eventsOf(first.id)).slice(-6).map((x) => x.name))}`);
     }
-    const selection = !!(await eventsOf(first.id)).findLast((x) => x.name === "pageMessage" && x.payload?.kind === "selection");
+    const selection = !!(await eventsOf(first.id)).findLast((x) => x.name === "selection");
     const labels = e.payload.items.filter((i) => !i.separator).map((i) => i.label);
     const search = labels.filter((l) => /^Search .* for /.test(l));
     if (!search.some((l) => l.startsWith("Search Acceptance for “to B”"))) throw new Error(`no app search item: ${JSON.stringify(labels)}`);
@@ -1336,9 +1336,9 @@ try {
       for (let k = 1; k <= 8; k++)
         await cdp(t, "Input.dispatchMouseEvent", { type: "mouseMoved", x: box.x + 2 + ((box.width - 10) * k) / 8, y, button: "left", buttons: 1 });
       await cdp(t, "Input.dispatchMouseEvent", { type: "mouseReleased", x: box.x + box.width - 8, y, button: "left", buttons: 0, clickCount: 1 });
-      const e = await until("onPageMessage selection", async () =>
-        (await eventsOf(first.id)).findLast((x) => x.name === "pageMessage" && x.payload?.kind === "selection" && x.payload?.data), 6000);
-      return { text: String(JSON.stringify(e.payload.data)).slice(0, 80) };
+      const e = await until("onSelection", async () =>
+        (await eventsOf(first.id)).findLast((x) => x.name === "selection" && x.payload?.selection), 6000);
+      return { text: String(JSON.stringify(e.payload.selection)).slice(0, 80) };
     } finally {
       await backToA();
     }
@@ -1701,12 +1701,13 @@ try {
       const out = { launch: await read() };
       await set({ memorySaver: false });
       out.off = await until("Memory Saver off", async () => { const r = await read(); return r.state === "off" && !r.active ? r : null; }, 5000);
-      await set({ memorySaver: true, memorySaverMode: "maximum", keepActiveSites: ["127.0.0.1", "[*.]example.com"] });
+      await set({ memorySaver: true, memorySaverMode: "maximum", keepActiveSites: ["127.0.0.1/Editor?Doc=AbC", "[*.]example.com"] });
       out.on = await until("Memory Saver on", async () => { const r = await read(); return r.state === "on" && r.active && r.aggressiveness === "maximum" && r.sites.length === 2 ? r : null; }, 5000);
-      out.valid = await engine("engine.memorySaver", { validate: "music.youtube.com" });
-      out.invalid = await engine("engine.memorySaver", { validate: "" });
+      out.valid = await engine("engine.validateKeepActiveSite", { site: "music.youtube.com" });
+      out.invalid = await engine("engine.validateKeepActiveSite", { site: "" });
       const problems = [];
       if (out.launch.state !== (saved.memorySaver === false ? "off" : "on")) problems.push(`launch: ${JSON.stringify(out.launch)}`);
+      if (!out.on.sites.includes("127.0.0.1/Editor?Doc=AbC")) problems.push(`sites: ${JSON.stringify(out.on.sites)}`);
       if (!out.valid.valid || out.invalid.valid) problems.push(`validate: ${JSON.stringify([out.valid, out.invalid])}`);
       if (problems.length) throw new Error(problems.join("; "));
       return out;

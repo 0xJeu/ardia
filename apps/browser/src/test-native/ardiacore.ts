@@ -89,12 +89,13 @@ export const chromeHistory = (profile = "", device = current.device) => {
 export const historyWatches: string[] = [];
 
 export function chromeHistoryEvent(change: HistoryChange) {
-  const { profile } = change;
-  if (change.kind === "visit")
-    laterEngineEvent("history.changed", { profile, kind: "visit", u: change.url, t: change.title, n: change.visits, at: change.at });
-  else if (change.kind === "modified")
-    laterEngineEvent("history.changed", { profile, kind: "modified", rows: change.rows.map((r) => ({ u: r.url, t: r.title, n: r.visits })) });
-  else laterEngineEvent("history.changed", { profile, kind: "deleted", all: change.all, urls: change.urls });
+  const wire =
+    change.kind === "visit"
+      ? { kind: "visit", u: change.url, t: change.title, n: change.visits, at: change.at }
+      : change.kind === "modified"
+        ? { kind: "modified", rows: change.rows.map((r) => ({ u: r.url, t: r.title, n: r.visits })) }
+        : { kind: "deleted", all: change.all, urls: change.urls };
+  laterEngineEvent("history.changed", { profile: change.profile, kind: "batch", changes: [wire] });
 }
 
 function addVisit(profile: string, url: string, title: string, at: number) {
@@ -249,11 +250,7 @@ export function chromeBookmarkEdit(profile: string, ops: BookmarkOp[]) {
   laterEngineEvent("bookmarks.changed", { profile });
 }
 
-function cliControl(args: EngineArgs) {
-  if (args && "activeTab" in args) return testGlobals.acTestCliActive?.(args.activeTab as string | null) ?? {};
-  const on = args && "on" in args ? (args.on as boolean) : null;
-  return testGlobals.acTestCliControl?.(on) ?? { state: on ? "on" : "off" };
-}
+const cliControl = (on: boolean | null) => testGlobals.acTestCliControl?.(on) ?? { state: on ? "on" : "off" };
 
 const passing = (name: string): Handler => (args) => {
   const { profile, ...rest } = args;
@@ -303,7 +300,9 @@ const fakeModules = {
       batterySaver: () => null,
       trimMemory: passing("ac_memory_trim"),
       openTaskManager: passing("ac_task_manager_open"),
-      cliControl: ({ profile: _profile, ...args }) => cliControl(Object.keys(args).length ? args : undefined),
+      cliControlStatus: () => cliControl(null),
+      setCliControl: ({ on }) => cliControl(on as boolean),
+      setCliActiveTab: ({ tabId }) => testGlobals.acTestCliActive?.(tabId as string | null) ?? {},
     },
     { inputIdleSeconds: () => 3600 },
   ),
@@ -409,7 +408,7 @@ const fakeModules = {
     syncState: passing("ac_extensions_sync_state"),
     syncApply: passing("ac_extensions_sync_apply"),
   }),
-  ArdiaSearch: domain("search", { engines: () => ({ list: [] }), setEngineName: () => null }),
+  ArdiaSearch: domain("search", { engines: () => ({ list: { engines: [] } }), setEngineName: () => null }),
   ArdiaMedia: domain("media", {
     displayMediaSources: () => [],
     selectDevice: () => null,

@@ -14,14 +14,14 @@ import { useEffect, useRef, useState } from "react";
 import { StyleSheet, View } from "react-native";
 import { useTheme } from "../ui/theme";
 import { webviews } from "../../state/tabs/webviewHandles";
-import { currentLive, currentMuteState } from "../../state/browser/current";
+import { currentEngineProfile, currentLive, currentMuteState } from "../../state/browser/current";
 import { useMuteState } from "../../state/tabs/hooks";
 import { setSiteMuted } from "../../state/browser/actions";
 import { setFind } from "../../state/windows/actions";
 import { updateSettings } from "../../state/settings/actions";
 import { useEngineRule, usePageEngine, useRecommendedEngine, useStreamingSite } from "../../state/engines/hooks";
 import { useSettings, useTab } from "../../state/browser/hooks";
-import { engineProfile, isIncognitoProfile, tabLabel } from "../../state/browser/model";
+import { isIncognitoProfile, tabLabel } from "../../state/browser/model";
 import { ENGINE_NAMES, ENGINE_SYMBOLS, otherEngine } from "../../state/engines/engines";
 import { openPageIn, togglePageEngine } from "../../state/engines/actions";
 import { Box, MenuRow, MenuSeparator, PANEL, PanelHeader, Popover, PopoverValue, space, Toggle, usePopoverPresence } from "../ui";
@@ -38,6 +38,7 @@ import { CertificateDetails, ConnectionChip, ConnectionRow } from "./SiteConnect
 import { SiteExtensions } from "./SiteExtensions";
 import { TranslateRows } from "./TranslateControls";
 import { ZoomStepper } from "./ZoomControls";
+import { isWebPageUrl } from "../../lib/url";
 
 type Permission = { type: SiteSettingType; title: string; icon: string; badge: string; choices: SiteSettingValue[] };
 
@@ -101,7 +102,7 @@ function SiteControlsPanel({
   const url = tab?.url ?? "";
   const origin = siteOrigin(url);
   const host = origin ? new URL(origin).hostname : "";
-  const profile = engineProfile(tab?.profileId ?? "");
+  const profile = currentEngineProfile(tab?.profileId ?? "");
   const close = () => setPopover(tabId, null);
   const video = useMedia((m) => !!m.sessions[tabId]?.hasVideo || !!m.pipOpen[tabId]);
   const [pip, togglePip] = usePictureInPicture(tabId);
@@ -187,7 +188,7 @@ function SiteControlsPanel({
   };
   const toggle = (section: Exclude<Expanded, null>) => setExpanded((e) => (e === section ? null : section));
 
-  const findable = /^(https?|file):/i.test(url);
+  const findable = isWebPageUrl(url);
   const castTile = !video && !!origin;
   const tiles = [
     canShare(tab) ? <ActionTile key="share" ref={shareTile} icon="square.and.arrow.up" label="Share…" onPress={share} /> : null,

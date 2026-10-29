@@ -45,6 +45,6 @@ export function openFromPage({ url, adoptId, disposition, profile, point }: Open
 export function pageProfileId(windowId: string, pageProfile: string): string {
   const s = useBrowser.getState();
   const w = s.windows[windowId];
-  if (w && engineProfile(w.profileId) === pageProfile) return w.profileId;
-  return s.profileOrder.find((p) => engineProfile(p) === pageProfile) ?? w?.profileId ?? s.settings.defaultProfileId;
+  if (w && engineProfile(s, w.profileId) === pageProfile) return w.profileId;
+  return s.profileOrder.find((p) => engineProfile(s, p) === pageProfile) ?? w?.profileId ?? s.settings.defaultProfileId;
 }

@@ -8,9 +8,9 @@ import {
   onExtensionTabsRequest,
   resolveExtensionInstallPrompt,
   watchExtensionActions,
-  webStoreExtensionId,
   type TabsRequest,
 } from "../../platform/extensions";
+import { webStoreExtensionId } from "@ardia/core";
 import { AppState } from "react-native";
 import { openWindow } from "../browser/actions";
 import { webviews } from "../../platform/webviews";
@@ -22,6 +22,7 @@ import { usePages } from "../tabs/pageState";
 import { refreshActionStates } from "./actionStates";
 import { startExtensionSearchEngines } from "./searchEngines";
 import { watchExtensionInstallFailures } from "./crxDrop";
+import { onSyncedExtensionChange } from "../sync/extensions";
 import * as state from "./actions";
 import {
   activateExtension,
@@ -43,6 +44,7 @@ export function startExtensionsBridge() {
   onExtensionTabsRequest(openRequestedTab);
   startExtensionSearchEngines();
   onExtensionsChanged(({ profile }) => void refreshExtensions(profile));
+  onSyncedExtensionChange((profile) => void refreshExtensionsAfterChange(profile));
 
   const loadProfiles = (s: BrowserState) => {
     for (const id of s.windowOrder) {
@@ -73,14 +75,14 @@ function openRequestedTab(request: TabsRequest) {
   if (request.chromeWindow && request.adoptId) return openChromeMadeTab(request, request.chromeWindow, request.adoptId);
   if (!request.url) return;
   const s = useBrowser.getState();
-  const ofProfile = (id: string) => !!s.windows[id] && !s.windows[id]!.incognito && engineProfile(s.windows[id]!.profileId) === request.profile;
+  const ofProfile = (id: string) => !!s.windows[id] && !s.windows[id]!.incognito && engineProfile(s, s.windows[id]!.profileId) === request.profile;
   const windowId =
     (request.window && s.windows[request.window] ? request.window : undefined) ??
     s.ui.focusOrder.find(ofProfile) ??
     s.ui.focusOrder.find((id) => s.windows[id]);
   const background = request.active === false;
   const profileId = request.adoptId
-    ? windowId && ofProfile(windowId) ? s.windows[windowId]!.profileId : s.profileOrder.find((p) => engineProfile(p) === request.profile)
+    ? windowId && ofProfile(windowId) ? s.windows[windowId]!.profileId : s.profileOrder.find((p) => engineProfile(s, p) === request.profile)
     : undefined;
   if (request.adoptId && profileId) {
     if (windowId && ofProfile(windowId)) s.newTab(windowId, { url: request.url, adoptId: request.adoptId, profileId, background });
@@ -95,7 +97,7 @@ function openChromeMadeTab(request: TabsRequest, chromeWindow: string, adoptId: 
   const s = useBrowser.getState();
   const made = Object.values(s.windows).find((w) => w.chromeWindow === chromeWindow);
   if (made) return void s.newTab(made.id, { url: request.url, adoptId, profileId: made.profileId, background: request.active === false });
-  const profileId = s.profileOrder.find((p) => engineProfile(p) === request.profile);
+  const profileId = s.profileOrder.find((p) => engineProfile(s, p) === request.profile);
   if (!profileId) return void openWindow({ url: request.url, adoptId });
   openWindow({ url: request.url, adoptId, profileId, chromeWindow, background: request.focused === false });
 }

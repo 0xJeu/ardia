@@ -8,12 +8,12 @@ import {
   resolveExtensionInstallPrompt,
   setExtensionEnabled,
   uninstallExtension,
-  webStoreExtensionId,
   type ActionState,
   type ExtensionInstallPrompt,
   type ExtensionPackage,
   type InstalledExtension,
 } from "../../platform/extensions";
+import { webStoreExtensionId } from "@ardia/core";
 import { confirm } from "../../platform/dialogs";
 import { showMenu, type MenuItem } from "../../platform/menus";
 import { menuSections } from "../app/menuSections";
@@ -25,8 +25,9 @@ import { shownPageId } from "../peek/peek";
 import { goToSettingsPane, openSettings, replaceSettingsPlace, settingsBack, useSettingsNav } from "../settings/settingsWindows";
 import { closeSidePanelsOf, toggleSidePanel } from "./sidePanels";
 import { extensionProfile, extensionsProfileId, pageProfile, shownIn, useExtensions, windowExtensions, readyTabOf, type Anchor } from "./store";
+import { errorText } from "../../lib/errors";
 
-export { permissionWarnings, reloadExtension } from "../../platform/extensions";
+export { reloadExtension } from "../../platform/extensions";
 
 export * from "./sidePanels";
 export * from "./store";
@@ -82,7 +83,7 @@ export function addFromWebStore(windowId: string, urlOrId: string, profile = ext
   const s = useBrowser.getState();
   const target = s.windows[windowId] ? windowId : s.ui.focusOrder.find((w) => s.windows[w] && extensionProfile(s, w) === profile && !s.windows[w]!.incognito);
   if (target) s.newTab(target, { url });
-  else openWindow({ profileId: s.profileOrder.find((p) => engineProfile(p) === profile), url });
+  else openWindow({ profileId: s.profileOrder.find((p) => engineProfile(s, p) === profile), url });
 }
 
 export async function loadUnpacked(windowId: string, profile = extensionProfile(useBrowser.getState(), windowId)): Promise<boolean> {
@@ -92,7 +93,7 @@ export async function loadUnpacked(windowId: string, profile = extensionProfile(
     const pkg = await inspectUnpackedExtension(path);
     useExtensions.setState({ install: { windowId, profile, source: "unpacked", status: "ready", pkg } });
   } catch (error) {
-    useExtensions.setState({ install: { windowId, profile, source: "unpacked", status: "error", error: message(error) } });
+    useExtensions.setState({ install: { windowId, profile, source: "unpacked", status: "error", error: errorText(error) } });
   }
   return true;
 }
@@ -135,7 +136,7 @@ export async function confirmInstall() {
     useExtensions.setState({ install: null });
     await refreshExtensions(request.profile);
   } catch (error) {
-    useExtensions.setState({ install: { ...request, status: "error", error: message(error) } });
+    useExtensions.setState({ install: { ...request, status: "error", error: errorText(error) } });
   }
 }
 
@@ -292,10 +293,6 @@ export function runExtensionListChoice(choice: string | null, windowId: string) 
   if (choice === "add") openWebStore(windowId);
   if (choice === "manage") openManageExtensions(windowId);
   if (choice === "pin") openPinDialog(windowId);
-}
-
-function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 export function extensionMenu(s: BrowserState, windowId: string | undefined) {

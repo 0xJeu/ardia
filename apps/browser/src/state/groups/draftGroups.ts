@@ -4,13 +4,14 @@ import { groupChoiceKey, nextPinChoice, placeChoiceKey } from "../pins/organize"
 import { IDLE_LIVE, isIncognitoProfile, makeTab, newId } from "../browser/model";
 import { pageKey, pinnedPages } from "../tabs/pageKeys";
 import type { BookmarkFolder, Bookmarks, TabGroup } from "../browser/types";
+import { isWebPageUrl } from "../../lib/url";
 
 export type GroupDraft = { title: string; url?: string; customTitle?: string; id?: string; children?: GroupDraft[] };
 export type DraftGroups = { made: string[]; carried: Set<string>; skipped: number };
 
 export const MAX_DRAFT_LINKS = 5000;
 
-export const opens = (url: string | undefined): url is string => !!url && /^(https?|file):/i.test(url);
+export const opens = (url: string | undefined): url is string => !!url && isWebPageUrl(url);
 export const hasLinks = (d: GroupDraft): boolean => !!d.children?.some((c) => (c.url ? opens(c.url) : hasLinks(c)));
 
 export function bookmarkDraft(b: Bookmarks, folderId: string): GroupDraft | null {

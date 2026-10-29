@@ -42,7 +42,7 @@ const EMPTY: InstalledExtension[] = [];
 
 export function extensionProfile(s: BrowserState, windowId: string | null | undefined): string {
   const w = windowId ? s.windows[windowId] : undefined;
-  return !w ? "" : (privateSession(w.profileId) ?? engineProfile(w.profileId));
+  return !w ? "" : (privateSession(s, w.profileId) ?? engineProfile(s, w.profileId));
 }
 
 export function settingsProfileOf(s: BrowserState, windowId: string | null | undefined): string | null {
@@ -65,7 +65,7 @@ export const settingsProfileFor = (pane: string, current: { pane: string; profil
 export const isPrivate = (s: BrowserState, windowId: string) => !!s.windows[windowId]?.incognito;
 
 export const pageProfile = (s: BrowserState, windowId: string) =>
-  isPrivate(s, windowId) ? engineProfile(s.windows[windowId]!.profileId) : extensionProfile(s, windowId);
+  isPrivate(s, windowId) ? engineProfile(s, s.windows[windowId]!.profileId) : extensionProfile(s, windowId);
 
 const showsExtension = (priv: boolean, ext: InstalledExtension) => ext.enabled && (!priv || (ext.incognito && !!ext.incognitoSplit));
 

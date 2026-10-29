@@ -6,6 +6,7 @@ import { lastPicture, startTabPictures } from "../tabs/tabPictures";
 import { webviews } from "../../platform/webviews";
 import { useBrowser } from "../browser/store";
 import type { Frame } from "../browser/types";
+import { tabTitle } from "../browser/model";
 import { splitOf, type SplitSide } from "../splits/splits";
 import { dropTabIntoSplit } from "../splits/actions";
 import { dropTabsOutside, screenPoint, windowUnder } from "./windowDrop";
@@ -152,7 +153,7 @@ function takePicture({ chip, grab }: Picture, windowId: string) {
     if (!shown || (onScreen && !tab?.url)) return;
     const last = lastPicture(shown);
     if (last) return dragPreview.page(last.data, last.frame);
-    if (tab) dragPreview.placeholder(tab.customTitle || tab.title || tab.url || "New Tab", tab.favicon);
+    if (tab) dragPreview.placeholder(tabTitle(tab), tab.favicon);
   });
 }
 

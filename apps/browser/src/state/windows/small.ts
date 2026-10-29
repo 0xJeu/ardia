@@ -27,7 +27,7 @@ export const linkProfileOf = (s: Pick<BrowserState, "profiles">, w: BrowserWindo
   isSmallWindow(w) ? undefined : originalProfile(s, w);
 
 export function privateWindowProfile(s: Pick<BrowserState, "profiles" | "profileOrder">, w: BrowserWindow | undefined, engineName?: string) {
-  const named = engineName !== undefined ? s.profileOrder.find((p) => engineProfile(p) === engineName) : undefined;
+  const named = engineName !== undefined ? s.profileOrder.find((p) => engineProfile(s, p) === engineName) : undefined;
   return named ?? originalProfile(s, w);
 }
 

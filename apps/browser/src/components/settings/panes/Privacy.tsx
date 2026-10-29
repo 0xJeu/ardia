@@ -5,12 +5,9 @@ import {
   removeExternalAppAllowance,
   resetSiteSettings,
   setContentBlockerAllowed,
-  setContentBlockerEnabled,
-  setFilterListEnabled,
   setSiteSetting,
   setZoom,
   type ClearSiteDataResult,
-  type ContentBlockerState,
   type FilterList,
   type FilterListCategory,
   type SiteSettings,
@@ -21,26 +18,27 @@ import { confirm } from "../../../state/app/system";
 import { useEffect, useState } from "react";
 import { Image, ScrollView, Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
-import { currentSettings } from "../../../state/browser/current";
+import { currentEngineProfile, currentSettings } from "../../../state/browser/current";
 import { useProfiles, useSettings } from "../../../state/browser/hooks";
-import { engineProfile } from "../../../state/browser/model";
 import { Button, Checkbox, font, PopUp, Sheet, Toggle, weight } from "../../ui";
 import { Favicon } from "../../favicon/Favicon";
 import { Group, Row, SectionHeader } from "../Form";
+import { setting, type SettingId } from "../settingsIndex";
 import { appLinks, contentBlocker, siteOrigins, zoomLevels } from "../../../state/settings/paneData";
 import { useResource } from "../../../state/settings/resources";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 import { updateSettings } from "../../../state/settings/actions";
+import { categoryOn, setBlockingCategory, setFilterList } from "../../../state/site/contentBlocking";
 import { ShareDiagnosticsSection } from "./ShareDiagnostics";
 import { UI_LOCALE } from "../../../lib/uiLocale";
 
-const CATEGORIES: { id: FilterListCategory; toggle: string; section: string; anchor?: string }[] = [
-  { id: "ads", toggle: "Block ads", section: "Ad blockers", anchor: "privacy.blockAds" },
-  { id: "trackers", toggle: "Block trackers", section: "Trackers", anchor: "privacy.blockTrackers" },
-  { id: "cookies", toggle: "Block cookie banners", section: "Cookie banners", anchor: "privacy.blockCookieBanners" },
-  { id: "annoyances", toggle: "", section: "Annoyances" },
-  { id: "security", toggle: "", section: "Malware and scams" },
-  { id: "regional", toggle: "", section: "Regional blockers" },
+const CATEGORIES: { id: FilterListCategory; section: string; anchor?: SettingId }[] = [
+  { id: "ads", section: "Ad blockers", anchor: "privacy.blockAds" },
+  { id: "trackers", section: "Trackers", anchor: "privacy.blockTrackers" },
+  { id: "cookies", section: "Cookie banners", anchor: "privacy.blockCookieBanners" },
+  { id: "annoyances", section: "Annoyances" },
+  { id: "security", section: "Malware and scams" },
+  { id: "regional", section: "Regional blockers" },
 ];
 
 const filtersText = (n: number) => `${n.toLocaleString(UI_LOCALE)} ${n === 1 ? "filter" : "filters"}`;
@@ -55,21 +53,10 @@ function useContentBlocker() {
   return [state ?? null, refresh] as const;
 }
 
-const categoryOn = (s: ContentBlockerState, c: FilterListCategory) => s.enabled && s.lists.some((l) => l.category === c && l.enabled);
-
-async function setCategory(s: ContentBlockerState, c: FilterListCategory, on: boolean) {
-  const lists = s.lists.filter((l) => l.category === c);
-  const usual = lists.filter((l) => l.defaultOn || l.enabled);
-  const starters = usual.length ? usual : lists.filter((l) => /easylist|fanboy/.test(l.id));
-  for (const l of on ? (starters.length ? starters : lists) : lists.filter((l) => l.enabled)) await setFilterListEnabled(l.id, on);
-  const anyOn = CATEGORIES.some((x) => (x.id === c ? on : categoryOn(s, x.id)));
-  if (anyOn !== s.enabled) await setContentBlockerEnabled(anyOn);
-}
-
 export function PrivacyPane() {
   const theme = useTheme();
   const [blocker, refresh] = useContentBlocker();
-  const commandScrollZoom = useSettings((s) => s.commandScrollZoom ?? true);
+  const commandScrollZoom = useSettings((s) => s.commandScrollZoom);
 
   const toggleCategory = async (c: FilterListCategory, on: boolean) => {
     if (!blocker) return;
@@ -82,7 +69,7 @@ export function PrivacyPane() {
       if (!confirmed) return refresh();
     }
     try {
-      await setCategory(blocker, c, on);
+      await setBlockingCategory(blocker, c, on);
     } finally {
       refresh();
     }
@@ -92,8 +79,8 @@ export function PrivacyPane() {
     <View>
       <SectionHeader title="Content blocking" description="Built on EasyList and EasyPrivacy. Blocking happens on this Mac." />
       <Group>
-        {CATEGORIES.filter((c) => c.toggle).map((c) => (
-          <Row key={c.id} anchor={c.anchor} title={c.toggle}>
+        {CATEGORIES.filter((c) => c.anchor).map((c) => (
+          <Row key={c.id} anchor={c.anchor}>
             <Toggle value={!!blocker && categoryOn(blocker, c.id)} disabled={!blocker} onChange={(v) => void toggleCategory(c.id, v)} />
           </Row>
         ))}
@@ -141,9 +128,9 @@ function FilterListsSheet() {
   const theme = useTheme();
   const [blocker, refresh] = useContentBlocker();
   const toggle = async (l: FilterList, on: boolean) => {
+    if (!blocker) return;
     try {
-      await setFilterListEnabled(l.id, on);
-      if (on && blocker && !blocker.enabled) await setContentBlockerEnabled(true);
+      await setFilterList(blocker, l.id, on);
     } finally {
       refresh();
     }
@@ -151,7 +138,7 @@ function FilterListsSheet() {
   return (
     <Sheet width={500} onClose={closeSettingsSheet}>
       <Text style={{ ...font.heading, fontWeight: weight.semibold, color: theme.textPrimary }}>Advanced Ad Block Settings</Text>
-      <Text style={{ ...font.small, marginTop: 4, color: theme.textSecondary }}>Block common components found across the web by using additional rules and filters.</Text>
+      <Text style={{ ...font.small, marginTop: 4, color: theme.textSecondary }}>{setting("privacy.filterLists").description}</Text>
       <ScrollView style={{ maxHeight: 420, marginTop: 8 }}>
         {CATEGORIES.map((c) => {
           const lists = blocker?.lists.filter((l) => l.category === c.id) ?? [];
@@ -186,7 +173,7 @@ function ZoomLevels() {
   const profileId = useSettings((s) => s.defaultProfileId);
   const profiles = useProfiles();
   const [selected, setSelected] = useState(profileId);
-  const [loaded, reload] = useResource(zoomLevels, engineProfile(selected));
+  const [loaded, reload] = useResource(zoomLevels, currentEngineProfile(selected));
   const levels = loaded ?? {};
   const load = () => void reload();
   const hosts = Object.keys(levels).sort();
@@ -202,7 +189,7 @@ function ZoomLevels() {
       <Group>
         {hosts.map((host) => (
           <Row key={host} icon={<Favicon url={`https://${host}`} />} title={host} description={`${Math.round(levels[host]! * 100)}%`}>
-            <Button title="Reset" onPress={() => void setZoom(engineProfile(selected), host, 1).then(load)} />
+            <Button title="Reset" onPress={() => void setZoom(currentEngineProfile(selected), host, 1).then(load)} />
           </Row>
         ))}
       </Group>
@@ -240,7 +227,7 @@ const VALUE_OPTIONS: { value: SiteSettingValue; title: string }[] = [
 function SitePermissions() {
   const profiles = useProfiles();
   const [profileId, setProfileId] = useState(() => currentSettings().defaultProfileId);
-  const [loaded, reload] = useResource(siteOrigins, engineProfile(profileId));
+  const [loaded, reload] = useResource(siteOrigins, currentEngineProfile(profileId));
   const origins = loaded ?? null;
   const refresh = () => void reload();
 
@@ -248,7 +235,6 @@ function SitePermissions() {
     <>
       <SectionHeader
         anchor="privacy.sitePermissions"
-        description="Pop-ups, camera, location and other permissions you've set for sites."
         action={
           profiles.length > 1 ? (
             <PopUp value={profileId} options={profiles.map((p) => ({ value: p.id, title: p.name }))} onChange={setProfileId} />
@@ -278,7 +264,7 @@ function SitePermissions() {
 function AppLinks() {
   const profiles = useProfiles();
   const [profileId, setProfileId] = useState(() => currentSettings().defaultProfileId);
-  const [loaded, reload] = useResource(appLinks, engineProfile(profileId));
+  const [loaded, reload] = useResource(appLinks, currentEngineProfile(profileId));
   const allowed = loaded ?? null;
   const refresh = () => void reload();
 
@@ -286,7 +272,6 @@ function AppLinks() {
     <>
       <SectionHeader
         anchor="privacy.appLinks"
-        description="Sites that open another app without asking first."
         action={
           profiles.length > 1 ? (
             <PopUp value={profileId} options={profiles.map((p) => ({ value: p.id, title: p.name }))} onChange={setProfileId} />
@@ -308,7 +293,7 @@ function AppLinks() {
             >
               <Button
                 title="Remove"
-                onPress={() => void removeExternalAppAllowance(engineProfile(profileId), a.origin, a.scheme).then(refresh)}
+                onPress={() => void removeExternalAppAllowance(currentEngineProfile(profileId), a.origin, a.scheme).then(refresh)}
               />
             </Row>
           ))
@@ -320,7 +305,7 @@ function AppLinks() {
 
 function SiteSheet({ profileId, origin, onChanged }: { profileId: string; origin: string; onChanged: () => void }) {
   const theme = useTheme();
-  const profile = engineProfile(profileId);
+  const profile = currentEngineProfile(profileId);
   const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [status, setStatus] = useState("");
   const load = () => void getSiteSettings(profile, origin).catch((): SiteSettings => ({}) as SiteSettings).then(setSettings).catch(() => {});

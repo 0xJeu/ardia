@@ -9,7 +9,7 @@ import { newCapture } from "../../state/sidebar/listCapture";
 import { useCapturedGroupEntries, useGroupFirstTabIcon, useKeptEntry } from "../../state/sidebar/hooks";
 import { MeetingTimeLabel, useMeetingCountdown } from "../live/MeetingCountdown";
 import { HoverSlot } from "../ui/HoverSlot";
-import { Button, ContextMenuArea, FadeLabel, font, ink, radius, Surface, Symbol, weight } from "../ui";
+import { Button, ContextMenuArea, FadeLabel, font, ink, radius, Surface, Symbol, weight, withAlpha } from "../ui";
 import { commitRename, endRename, startRename } from "../../state/sidebar/actions";
 import { useDragFolded, useDragItem, useDropInto } from "./DragProvider";
 import { useShift, type EntryMotion } from "./EntryMotion";
@@ -21,11 +21,10 @@ import { HOVER_CARD_FADE_MS } from "./hoverMotion";
 import { GhostSlot, ListMotionContext, useGroupMotion } from "./ListMotion";
 import { pressGroupClose, useGroupCloseControlWhile } from "../../state/sidebar/closeControl";
 import { openGroupMenu } from "../../state/sidebar/menus";
-import { groupColorMenu } from "./groupColorMenu";
 import { registerRow, useSidebarUi } from "../../state/sidebar/sidebarUi";
 import { TabIcon } from "./TabIcon";
 import { RenameField, SplitRowItem, TabRowItem } from "./TabRow";
-import { groupSurface, TABULAR_NUMS, useSidebarTokens, withAlpha } from "./tokens";
+import { groupSurface, TABULAR_NUMS, useSidebarTokens } from "./tokens";
 import { curve } from "../ui/motion";
 
 const PAD = GROUP_PAD;
@@ -170,7 +169,7 @@ function GroupHeader({ groupId, windowId, collapsed, open }: { groupId: string; 
       <ContextMenuArea
         onContextMenu={() => {
           dismissHover();
-          void openGroupMenu(windowId, groupId, groupColorMenu);
+          void openGroupMenu(windowId, groupId);
         }}
       >
         <Pressable

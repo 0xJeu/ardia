@@ -45,7 +45,7 @@ lib/                    pure helpers: url, time, keys
   come from `components/ui`.
 - Components never import `platform/`. A platform value a component uses (a web view handle, a kill switch, the
   import module) reaches it as a re-export from its domain in `state/`: `state/tabs/webviewHandles.ts`,
-  `state/tabs/prewarm.ts`, `state/app/switches.ts`, `state/app/slowTimers.ts`, `state/app/nativeApiSkew.ts`,
+  `state/app/switches.ts`, `state/app/slowTimers.ts`, `state/app/nativeApiSkew.ts`,
   `state/import/importApi.ts`, and `isWebDemo` from `state/onboarding/demoSteps.ts`. Each re-export file imports
   only its platform module, so modules still load in the same order.
 - The one exception is the dev harness (`components/dev/devHarness.ts`): it hands the whole shell module to CDP
@@ -214,7 +214,8 @@ writeDocument(DOC, versionedJson(data, VERSION));
   (`packages/ardiacore/src/engine/api.ts`); native dispatches by name to the matching `ac_*` call. Only secrets
   (`callWithSecret`) and views get dedicated functions.
 - **One error model:** engine errors reject with `{code, message}` (`ERR_ENGINE`, `ERR_UNKNOWN_CALL`,
-  `ERR_CONTENT_BLOCKER`, `ERR_BAD_REPLY`); JS throws `ArdiaError` with the code. Refused, absent or unavailable
+  `ERR_CONTENT_BLOCKER`, `ERR_BAD_REPLY`, and `ERR_BAD_ARGS` when an argument is missing or of the wrong type: native
+  reads each one as required or optional, never with a silent default); JS throws `ArdiaError` with the code. Refused, absent or unavailable
   answers are values in the function's return type (`false`, `null`, `[]`), not errors. The bridge never falls back
   silently; callers decide (`orWarn(x)` in `lib/fallback.ts` logs and falls back).
 - **One event channel per module.** Event names are `domain.event`; payloads are parsed once.

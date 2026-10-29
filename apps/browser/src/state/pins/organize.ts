@@ -1,11 +1,11 @@
 import type { StateCreator } from "zustand";
 import type { BrowserState } from "../browser/store";
 import { nestGroups, syncGroupOrder, withGroupsPlaced, withParent } from "../groups/groups";
-import { activeTabId, bookmarkProfileId, inPinnedContainer, isIncognitoProfile, snapshotTab, viewTabIds, without } from "../browser/model";
+import { activeTabId, bookmarkProfileId, inPinnedContainer, isIncognitoProfile, snapshotTab, tabTitle, viewTabIds, without } from "../browser/model";
 import { activated, apply, removeTabs, withNewTab } from "../tabs/tabs";
 import { clickedSelection, dropping, type ClickMods, type Drop } from "../drag/drops";
 import type { ClosedGroup, ClosedTab, Tab, TabGroup } from "../browser/types";
-import { hostOf } from "../../lib/url";
+import { hostOf } from "@ardia/core";
 import type { PinChoices, PinSync } from "./pinChoices";
 import { groupLabel, groupOf, movingGroup, withGroup, withRowsGrouped, type GroupPlacement } from "./tabGrouping";
 import { groupingOnto, placing, type TabPlacement } from "./placing";
@@ -189,7 +189,7 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
       const own = { ...s.privateSiteMutes[tab.windowId], [host]: muted };
       return set({ privateSiteMutes: { ...get().privateSiteMutes, [tab.windowId]: own } });
     }
-    const sites = new Set(s.settings.mutedSites ?? []);
+    const sites = new Set(s.settings.mutedSites);
     if (muted) sites.add(host);
     else sites.delete(host);
     get().updateSettings({ mutedSites: [...sites] });
@@ -261,7 +261,7 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
           continue;
         }
         const t = s.tabs[id];
-        if (t?.url) get().addBookmark({ profileId, url: t.url, title: t.customTitle || t.title || t.url, favicon: t.favicon, parentId: folder });
+        if (t?.url) get().addBookmark({ profileId, url: t.url, title: tabTitle(t), favicon: t.favicon, parentId: folder });
       }
     };
     file(g);

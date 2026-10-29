@@ -1,11 +1,13 @@
+import { hostOf } from "@ardia/core";
 import { translation } from "../../platform/text";
 import { create } from "zustand";
 import { webviews } from "../../platform/webviews";
 import { useBrowser } from "../browser/store";
 import { changedIds } from "../browser/changes";
 import { incognitoOriginal, isIncognitoProfile } from "../browser/model";
-import { hideKeyedToast, showToast } from "../splits/actions";
+import { hideKeyedToast, showToast } from "../app/toasts";
 import { translatorCall, type Passage } from "./pageTranslator";
+import { errorText } from "../../lib/errors";
 
 export { translation } from "../../platform/text";
 
@@ -43,25 +45,19 @@ function languages(): string[] {
 export const defaultTarget = () => baseLanguage(languages()[0] ?? "en");
 export const languageName = (language: string) => translation?.languageName(language) ?? language;
 
-function hostOf(url: string): string {
-  try {
-    return /^https?:$/.test(new URL(url).protocol) ? new URL(url).hostname.replace(/^www\./, "") : "";
-  } catch {
-    return "";
-  }
-}
+const translatableHost = (url: string) => (/^https?:/i.test(url) ? hostOf(url) : "");
 
 function listOwner(profileId: string): string {
   return isIncognitoProfile(profileId) ? incognitoOriginal(profileId) : profileId;
 }
 export function isNeverTranslated(profileId: string, url: string): boolean {
-  const host = hostOf(url);
+  const host = translatableHost(url);
   return !!host && (useBrowser.getState().settings.neverTranslateSites[listOwner(profileId)] ?? []).includes(host);
 }
 export function setNeverTranslate(tabId: string, never: boolean) {
   const s = useBrowser.getState();
   const tab = s.tabs[tabId];
-  const host = tab ? hostOf(tab.url) : "";
+  const host = tab ? translatableHost(tab.url) : "";
   if (!tab || !host || isIncognitoProfile(tab.profileId)) return;
   const all = s.settings.neverTranslateSites;
   const list = (all[tab.profileId] ?? []).filter((h) => h !== host);
@@ -82,7 +78,7 @@ async function pageLanguage(tabId: string): Promise<{ language: string | null; a
 
 async function detect(tabId: string) {
   const tab = useBrowser.getState().tabs[tabId];
-  if (!translation || !tab || !hostOf(tab.url)) return patch(tabId, { source: null, status: "idle", target: null, token: null });
+  if (!translation || !tab || !translatableHost(tab.url)) return patch(tabId, { source: null, status: "idle", target: null, token: null });
   const page = await pageLanguage(tabId);
   if (!page) return;
   if (!page.active && stateOf(tabId).status === "translated") patch(tabId, { status: "idle", target: null, token: null });
@@ -196,7 +192,7 @@ export async function translatePage(tabId: string, target = defaultTarget()) {
     void follow(tabId, token);
   } catch (error) {
     await revertPage(tabId, { quiet: true });
-    const reason = error instanceof Error ? error.message : String(error);
+    const reason = errorText(error);
     toast(tabId, `Translation error (${reason.replace(/[.\s]+$/, "")})`);
   }
 }

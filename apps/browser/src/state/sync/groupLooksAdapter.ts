@@ -3,12 +3,12 @@ import { useBrowser } from "../browser/store";
 import { fromSync } from "../pins/pinOrderChoices";
 import { pinKeyOf } from "../pins/pinMirror";
 import type { TabGroup } from "../browser/types";
-import { GROUP_LOOK, legacyColor, lookedColor, NO_BOX, PIN_NEST } from "./pinRecords";
+import { PIN_GROUP, GROUP_LOOK, legacyColor, lookedColor, NO_BOX, PIN_NEST } from "./pinRecords";
 import { store } from "./pinnedSyncState";
 
 export function groupLooksAdapter(profileId: string): Adapter {
   const keyOf = (k: string) => k.slice(GROUP_LOOK.length);
-  const groupRecords = (key: string) => [`pin:g:${key}`, `${PIN_NEST}g:${key}`];
+  const groupRecords = (key: string) => [`${PIN_GROUP}${key}`, `${PIN_NEST}g:${key}`];
   return {
     prefix: GROUP_LOOK,
     extract: (_base, _queued, _now, recorded, remote) => {

@@ -29,7 +29,7 @@ export function watchNewDownloads(windowId: string, onFresh: (download: BrowserS
     if (s.downloads === prev.downloads) return;
     const fresh = s.downloads.find((d) => !seen.has(d.id));
     s.downloads.forEach((d) => seen.add(d.id));
-    if (!fresh || s.ui.focusedWindowId !== windowId || !downloadVisibleIn(fresh, s.windows[windowId])) return;
+    if (!fresh || s.ui.focusedWindowId !== windowId || !downloadVisibleIn(s, fresh, s.windows[windowId])) return;
     onFresh(fresh);
   });
 }

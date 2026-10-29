@@ -68,7 +68,6 @@ export function ProfilesPane() {
 
       <SectionHeader
         anchor="profiles.list"
-        description="Drag to reorder. ⌃1–⌃9 switch to the first nine."
         action={<Button title="Create Profile" icon="plus" onPress={() => void createProfile()} />}
       />
       <ProfileList />
@@ -238,7 +237,7 @@ export function ProfileDetailsPane({ profileId }: { profileId: string }) {
   const stats = useProfileDataStats(profileId);
   const [name, setName] = useState(profile?.name ?? "");
   if (!profile) return null;
-  const update = (patch: Partial<Pick<Profile, "name" | "color" | "icon">>) => updateProfile(profileId, patch);
+  const update = (patch: Partial<Pick<Profile, "name" | "icon">>) => updateProfile(profileId, patch);
   const commitName = () => (name.trim() ? update({ name: name.trim() }) : setName(profile.name));
   const sharing = shared.length > 1;
 

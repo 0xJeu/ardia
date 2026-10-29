@@ -1,5 +1,3 @@
-import { resolveInput } from "@ardia/core";
-import { fromLegacyUrl } from "../../lib/legacy";
 import type { BrowserState } from "../browser/store";
 import { ancestorIds, closedGroupInfo, innermostGroupOf, leaveGroups } from "../groups/groups";
 import {
@@ -19,7 +17,7 @@ import { forgetOpeners, insertionIndex, openerSuccessor } from "./openers";
 import { isClosedPin, onUrlChange, pruneSelection, samePage } from "../pins/organize";
 import { hasOwnOrSharedPage, hasPage, isLazy } from "./pageSession";
 import { isPeekTab, withoutPeek } from "../peek/peek";
-import { searchUrlPrefix } from "../settings/settings";
+import { resolveTyped } from "../settings/settings";
 import { leavesEmptyWindow } from "../omnibox/newTabBarPolicy";
 import { holderOf, withSharedFamily } from "../pins/pinShare";
 import { removeFromSplits, splitOf, withPinnedPanes } from "../splits/splits";
@@ -276,7 +274,7 @@ export function withNewTab(s: BrowserState, windowId: string, o: NewTabOptions =
   const w = s.windows[windowId];
   if (!w) return [s, ""];
   const profileId = w.incognito ? w.profileId : o.profileId && s.profiles[o.profileId] ? o.profileId : w.profileId;
-  const url = o.url ? resolveInput(fromLegacyUrl(o.url.trim()), searchUrlPrefix(s.settings)) : "";
+  const url = o.url ? resolveTyped(s.settings, o.url) : "";
   const tab = makeTab(windowId, profileId, url, { ...o.snapshot, pinned: o.pinned ?? o.snapshot?.pinned ?? false });
   if (tab.navigation && !o.snapshot) tab.navigation = navigationTo(url, true);
   tab.openerId = o.openerId ?? null;

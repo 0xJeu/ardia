@@ -9,7 +9,7 @@ import type { BrowserState } from "../browser/store";
 import { activeTabId } from "../browser/model";
 import { peekTabId } from "../peek/peek";
 import { splitOf } from "../splits/splits";
-import { hostOf } from "../../lib/url";
+import { hostOf } from "@ardia/core";
 import { isSleeping } from "../tabs/sleepingTabs";
 
 export type Session = NowPlaying & {

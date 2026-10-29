@@ -85,7 +85,6 @@ try {
       const harness = await app.eval("return true", { timeout: 2000 }).then(() => "answers", (e) => `no answer (${e.message})`);
       print({ pid: app.pid, port: app.port, data: app.data, app: app.app, log: app.log, started: app.started, harness });
     } else {
-      // Every running instance of any build, by its data dir (the browser process: helpers carry --type=).
       const ps = spawnSync("ps", ["-E", "-ww", "-ax", "-o", "pid=,command="], { encoding: "utf8" }).stdout.split("\n");
       for (const line of ps) {
         const m = /^\s*(\d+)\s+(\S.*?\/Contents\/MacOS\/Ardia)(?:\s|$)/.exec(line);
@@ -102,5 +101,4 @@ try {
   console.error(e.message ?? e);
   process.exit(1);
 }
-// A DevTools socket can hold the loop open.
 process.exit(0);

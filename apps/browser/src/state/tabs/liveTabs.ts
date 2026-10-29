@@ -1,3 +1,4 @@
+import { TAB_GROUP_COLORS } from "@ardia/core";
 import type { StripGroup, StripState, StripTab } from "../../platform/tabs";
 import type { BrowserState } from "../browser/store";
 import type { TabGroup } from "../browser/types";
@@ -19,7 +20,7 @@ const chromeGroupOf = (s: BrowserState, key: string | undefined) => {
 };
 
 const madeByChrome = (s: BrowserState, key: string) => !!s.tabs[key]?.adoptId?.startsWith("tab:");
-const CHROME_COLORS = new Set<string>(["grey", "blue", "red", "yellow", "green", "pink", "purple", "cyan", "orange"] satisfies StripGroup["color"][]);
+const CHROME_COLORS = new Set<string>(TAB_GROUP_COLORS);
 const chromeColor = (color: TabGroup["color"]): StripGroup["color"] => (color && CHROME_COLORS.has(color) ? (color as StripGroup["color"]) : "grey");
 
 export type Pending = { arranged: ReadonlySet<string>; grouped?: ReadonlySet<string>; regrouped?: ReadonlySet<string>; active: boolean };
@@ -40,7 +41,7 @@ export function chromeChanged(
   const firstFromChrome = (t: Keyed) => !stayed(t) && !seen.has(t.key) && madeByChrome(s, t.key);
   const home = homeWindow(s, after, siblings, stayed);
   const movedIn = (t: Keyed) =>
-    !was.has(t.browser) && !!home && s.tabs[t.key]!.windowId !== home && engineProfile(s.tabs[t.key]!.profileId) === after.profile;
+    !was.has(t.browser) && !!home && s.tabs[t.key]!.windowId !== home && engineProfile(s, s.tabs[t.key]!.profileId) === after.profile;
   const taken = new Set(now.filter((t) => firstFromChrome(t) || movedIn(t)).map((t) => t.key));
 
   for (const t of now) if (movedIn(t)) s = intoWindow(s, t.key, home!);

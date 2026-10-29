@@ -4,7 +4,7 @@ import { syncGroupOrder } from "../groups/groups";
 import { orderChoiceKey } from "../pins/organize";
 import { arrangeParked, arrangePinnedArea, parkedAnchors, parkedAreaKeys, pinnedAnchors, pinnedAreaKeys } from "../pins/pinnedArea";
 import { fromSync } from "../pins/pinOrderChoices";
-import { anchorIn, PIN_ORDER, PIN_ROW, ROW, type PinOrderValue, type PinValue } from "./pinRecords";
+import { PIN_TAB, PIN_GROUP, anchorIn, PIN_ORDER, PIN_ROW, ROW, type PinOrderValue, type PinValue } from "./pinRecords";
 import { homeWindow, openWindows, settleChoices, store } from "./pinnedSyncState";
 
 export function pinnedOrderAdapter(profileId: string): Adapter {
@@ -16,7 +16,7 @@ export function pinnedOrderAdapter(profileId: string): Adapter {
       const home = homeWindow(s, profileId);
       const shown = !!home && shownIn(s).includes(home);
       const gone = (key: string) => remote(key) === null;
-      const ignore = (k: string) => !gone(`pin:g:${k.slice(PIN_ORDER.length)}`);
+      const ignore = (k: string) => !gone(`${PIN_GROUP}${k.slice(PIN_ORDER.length)}`);
       if (!shown && !s.parkedPins[profileId]) return { values: new Map(), ignore } satisfies Extraction;
       const anchors = shown ? pinnedAnchors(s, home!, profileId) : parkedAnchors(s, profileId);
       const chosen = s.pinChoices[profileId] ?? {};
@@ -27,8 +27,8 @@ export function pinnedOrderAdapter(profileId: string): Adapter {
         const was = base(`${PIN_ORDER}${group}`) as PinOrderValue | undefined;
         const since = stamp(`${PIN_ORDER}${group}`);
         const changedSince = (key: string) => since !== undefined && (stamp(key) ?? "") > since;
-        const pin = was?.a ? (remote(`pin:t:${was.a}`) as PinValue | null | undefined) : undefined;
-        const leftRows = !!was?.a && changedSince(`pin:t:${was.a}`) && (pin === null || (!!pin && pin.g !== null));
+        const pin = was?.a ? (remote(`${PIN_TAB}${was.a}`) as PinValue | null | undefined) : undefined;
+        const leftRows = !!was?.a && changedSince(`${PIN_TAB}${was.a}`) && (pin === null || (!!pin && pin.g !== null));
         const madeTile = !!was?.a && changedSince(`${PIN_ROW}${was.a}`) && remote(`${PIN_ROW}${was.a}`) !== ROW;
         const settled = leftRows || madeTile;
         const waiting = !(orderChoiceKey(group) in chosen) && !!was?.a && was.a !== a && !rows.has(was.a) && !settled;

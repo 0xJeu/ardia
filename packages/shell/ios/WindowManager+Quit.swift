@@ -1,13 +1,9 @@
 import AppKit
 
 extension WindowManager {
-  func runtimeGone(_ gone: ObjectIdentifier) {
-    guard runtime == gone else { return }
-    runtime = nil
+  func runtimeGone() {
     pendingOpens = [:]
     pendingOrder = []
-    emit = nil
-    appEventsObserved = false
     replyToTerminate(false)
   }
 
@@ -21,14 +17,14 @@ extension WindowManager {
       alert.showsSuppressionButton = true
       alert.suppressionButton?.title = "Don't ask again"
       let response = alert.runModal()
-      if alert.suppressionButton?.state == .on { emit?("onAppEvent", ["type": "quitWarningSuppressed"]) }
+      if alert.suppressionButton?.state == .on { ShellEvents.send(.app, ["type": "quitWarningSuppressed"]) }
       guard response == .alertFirstButtonReturn else { return }
     }
     NSApp.terminate(nil)
   }
 
   func shouldTerminate() -> NSApplication.TerminateReply {
-    guard appEventsObserved, let emit else {
+    guard ShellEvents.isAttached(.app), ShellEvents.isAttached(.window) else {
       guard AppUpdater.shared.holdsQuitForStagedUpdate else { return .terminateNow }
       quitAfterUpdaterSettles()
       return .terminateLater
@@ -36,7 +32,7 @@ extension WindowManager {
     guard confirmActiveDownloads() else { return .terminateCancel }
     quitAttempt += 1
     quitStep = .saving
-    emit("onAppEvent", ["type": "willQuit"])
+    ShellEvents.send(.app, ["type": "willQuit"])
     waitForSave()
     return .terminateLater
   }
@@ -112,6 +108,6 @@ extension WindowManager {
   }
 
   func reopen() {
-    emit?("onAppEvent", ["type": "reopen"])
+    ShellEvents.send(.app, ["type": "reopen"])
   }
 }

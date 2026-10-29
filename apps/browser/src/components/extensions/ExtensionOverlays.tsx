@@ -1,5 +1,5 @@
+import { permissionWarnings } from "@ardia/core";
 import {
-  permissionWarnings,
   cancelInstall,
   closeExtensionPopup,
   confirmInstall,

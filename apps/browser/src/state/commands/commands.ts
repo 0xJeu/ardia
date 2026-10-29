@@ -58,6 +58,9 @@ import {
 import { runPeekCommand } from "../peek/actions";
 import { peekTabId } from "../peek/peek";
 import { expectFocus, findFocus } from "../focus/focusClaims";
+import { isWebPageUrl } from "../../lib/url";
+
+const newOrId = (arg: string) => (arg === "new" ? null : arg);
 
 export function runCommand({ command, arg, windowId: requested }: CommandEvent) {
   const s = useBrowser.getState();
@@ -234,7 +237,7 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
     case "javaScriptConsole":
       return void web?.showDevTools("console");
     case "viewSource":
-      if (!page || !web || !/^(https?|file):/.test(page.url)) return;
+      if (!page || !web || !isWebPageUrl(page.url)) return;
       return void s.newTab(windowId, { url: `view-source:${page.url}`, openerId: page.id, profileId: page.profileId });
     case "back":
       return tabId ? goBack(tabId) : undefined;
@@ -267,9 +270,9 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
     case "duplicateTab":
       return tab ? void s.duplicateTab(tab.id) : undefined;
     case "moveTabToProfile":
-      return tab && arg ? void moveTabToProfile(tab.id, arg) : undefined;
+      return tab && arg ? void moveTabToProfile(tab.id, newOrId(arg)) : undefined;
     case "moveTabToWindow":
-      return tab && arg ? moveTabToWindow(tab.id, arg) : undefined;
+      return tab && arg ? moveTabToWindow(tab.id, newOrId(arg)) : undefined;
     case "bookmarkPage":
       return page ? bookmarkTab(windowId, page.id) : undefined;
     case "addBookmarkToFolder":

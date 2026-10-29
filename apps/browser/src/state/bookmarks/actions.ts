@@ -3,8 +3,9 @@ import { create } from "zustand";
 import { focus, openWindow } from "../browser/actions";
 import { folderLinks } from "./bookmarks";
 import { storeAction, useBrowser } from "../browser/store";
-import { activeTabId, bookmarkProfileId, resolveWindowId, viewTabIds } from "../browser/model";
+import { activeTabId, bookmarkProfileId, resolveWindowId, tabTitle, viewTabIds } from "../browser/model";
 import { originalProfile } from "../windows/small";
+import { isWebPageUrl } from "../../lib/url";
 
 type OpenMode = "current" | "background" | "foreground" | "window" | "incognito" | "split";
 
@@ -101,7 +102,7 @@ export function bookmarkTab(windowId: string, tabId: string) {
     (n) => n.kind === "url" && n.url === tab.url && roots && isUnder(n.id, [roots.bar, roots.other]),
   );
   const bookmarkId =
-    existing?.id ?? s.addBookmark({ profileId, url: tab.url, title: tab.customTitle || tab.title || tab.url, favicon: tab.favicon });
+    existing?.id ?? s.addBookmark({ profileId, url: tab.url, title: tabTitle(tab), favicon: tab.favicon });
   useBookmarkDialog.setState({ open: { kind: "page", windowId: id, bookmarkId } });
 }
 
@@ -111,8 +112,8 @@ export function bookmarkAllTabs(windowId: string | null | undefined) {
   if (!id) return;
   const tabs = viewTabIds(s, id)
     .map((t) => s.tabs[t]!)
-    .filter((t) => /^(https?|file):/.test(t.url))
-    .map((t) => ({ url: t.url, title: t.customTitle || t.title || t.url }));
+    .filter((t) => isWebPageUrl(t.url))
+    .map((t) => ({ url: t.url, title: tabTitle(t) }));
   if (!tabs.length) return;
   useBookmarkDialog.setState({ open: { kind: "allTabs", windowId: id, profileId: bookmarkProfileId(s, s.windows[id]), tabs } });
 }

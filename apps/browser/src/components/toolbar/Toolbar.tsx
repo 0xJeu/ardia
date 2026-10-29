@@ -1,4 +1,5 @@
-import { appUrlOrigin, breadcrumb, urlForDisplay } from "@ardia/core";
+import { appUrlOrigin, urlForDisplay } from "@ardia/core";
+import { pageHostLabel } from "../../lib/url";
 import { memo, useCallback, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { Animated, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
@@ -187,7 +188,7 @@ export const UrlField = memo(function UrlField({
   const popover = usePages((p) => p.popover[tab.id] ?? null);
   const hovered = pointerOver || popover === "siteControls";
   const isFile = tab.url.startsWith("file:");
-  const host = isFile ? "File" : breadcrumb(tab.url).host;
+  const host = pageHostLabel(tab.url);
   const full = isFile ? ` ${safeDecode(tab.url.slice("file://".length))}` : urlForDisplay(tab.url);
   const path = !isFile && full.startsWith(host) ? full.slice(host.length) : full;
   const web = isWebUrl(tab.url);

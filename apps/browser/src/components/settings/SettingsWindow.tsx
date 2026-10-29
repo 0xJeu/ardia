@@ -7,7 +7,7 @@ import { updateSettings } from "../../state/settings/actions";
 import { trackSettingsSection } from "../../state/telemetry/track";
 import { preparePane, usePaneLoaded } from "../../state/settings/paneData";
 import { anchorView, clearSettingsReveal, flashSetting, settingsSectionKey, useSettingsSearch } from "../../state/settings/searchState";
-import { ADVANCED_PANES, PANES, setting } from "./settingsIndex";
+import { ADVANCED_PANES, findSetting, PANES } from "./settingsIndex";
 import { SettingsPaneContext } from "./Form";
 import { SettingsSearchField, SettingsSearchResults } from "./SettingsSearch";
 import { AdvancedPane } from "./panes/Advanced";
@@ -83,7 +83,7 @@ export function SettingsWindow() {
   const viewport = useRef(0);
   const query = useSettingsSearch((s) => s.query);
   const reveal = useSettingsSearch((s) => s.reveal);
-  const revealPane = reveal ? setting(reveal.id).pane : null;
+  const revealPane = reveal ? (findSetting(reveal.id)?.pane ?? null) : null;
   const showAdvanced = useSettings((s) => s.showAdvancedSettings);
   const revealedSections = useSettingsSearch((s) => s.revealedSections);
   const panes = PANES.filter(

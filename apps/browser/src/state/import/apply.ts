@@ -13,7 +13,7 @@ import {
   type SpaceSuggestion,
 } from "../../platform/importModule";
 import { addGroupsFromDrafts } from "../bookmarks/bookmarkGroups";
-import { adoptFavicons, pageKey as faviconPage } from "../favicons/favicons";
+import { adoptFavicons } from "../favicons/favicons";
 import type { BookmarkDraft } from "../bookmarks/bookmarks";
 import type { GroupDraft } from "../groups/draftGroups";
 import { useBrowser } from "../browser/store";
@@ -21,11 +21,12 @@ import { engineProfile, isIncognitoProfile } from "../browser/model";
 import { openPages, pageKey, pinnedPages, tilePages } from "../tabs/pageKeys";
 import { withNewTab } from "../tabs/tabs";
 import type { ProfileColor } from "../browser/types";
-import { adoptProfileTheme } from "../sync/engine";
+import { setProfileTheme } from "../profiles/themeActions";
 import { parseArcTheme } from "./arcTheme";
 import { newProfileLiveFolder } from "../live/engine";
 import { live } from "../live/store";
 import type { LiveSourceId } from "../live/types";
+import { isWebPageUrl, withoutFragment } from "../../lib/url";
 
 export type { BrowserProfile, BrowserSource, DiaTabsResult, ImportedExtension, ImportKind, ImportResult, SpaceSummary } from "../../platform/importModule";
 
@@ -64,8 +65,8 @@ const linksOf = (nodes: ImportedNode[]): string[] => nodes.flatMap((n) => (n.typ
 
 function importFavicons(profileId: string, favicons: ImportedFavicon[] | undefined, urls: string[]) {
   if (!favicons?.length || !urls.length) return;
-  const wanted = new Set(urls.map(faviconPage));
-  adoptFavicons(profileId, favicons.filter((f) => wanted.has(faviconPage(f.page))));
+  const wanted = new Set(urls.map(withoutFragment));
+  adoptFavicons(profileId, favicons.filter((f) => wanted.has(withoutFragment(f.page))));
 }
 
 const linkCount = (nodes: ImportedNode[]): number => nodes.reduce((n, c) => n + (c.type === "url" ? 1 : linkCount(c.children ?? [])), 0);
@@ -105,7 +106,7 @@ async function importPasswords(profileId: string, credentials: Credential[]): Pr
   for (const c of credentials) {
     const origin = /^([a-z][a-z0-9+.-]*:\/\/[^/?#]+)/i.exec(c.realm?.startsWith("http") ? c.realm : c.url)?.[1];
     if (!origin || !c.password) continue;
-    if (await savePassword(engineProfile(profileId), origin, c.username, c.password).catch(orWarn(false))) saved++;
+    if (await savePassword(engineProfile(useBrowser.getState(), profileId), origin, c.username, c.password).catch(orWarn(false))) saved++;
   }
   return saved;
 }
@@ -124,7 +125,7 @@ export async function importNative(
     return none;
   }
   try {
-    const w = await api.writeImported(token, engineProfile(profileId), kinds);
+    const w = await api.writeImported(token, engineProfile(useBrowser.getState(), profileId), kinds);
     if (w.cookiesFailed) onFailed?.("cookies");
     if (w.autofillFailed) onFailed?.("autofill");
     return { cookies: w.cookies, addresses: w.addresses, cards: w.cards };
@@ -156,7 +157,7 @@ export function importTabs(
   const pinned = pinnedAgainst === "tiles" ? tilePages(s, profileId) : pinnedPages(s, profileId);
   const open = openPages(s, profileId);
   const usable = tabs.filter((t) => {
-    if (!/^(https?|file):/i.test(t.url)) return false;
+    if (!isWebPageUrl(t.url)) return false;
     const seen = t.pinned ? pinned : open;
     const key = pageKey(t.url);
     if (seen.has(key)) return false;
@@ -198,10 +199,7 @@ export function importArcSpace(profileId: string, space: SpaceSuggestion, favico
   );
   tabs += importTabs(profileId, space.tabs.map((t) => ({ ...t, pinned: false })), "Imported");
   const theme = space.theme ? parseArcTheme(space.theme) : null;
-  if (theme) {
-    adoptProfileTheme(profileId);
-    useBrowser.getState().updateProfile(profileId, { theme });
-  }
+  if (theme) setProfileTheme(profileId, theme);
   if (!folders.length) return { tabs, bookmarks: 0, skipped: 0 };
   const { made, skipped } = addGroupsFromDrafts(profileId, folders.map(toGroupDraft), windowFor(profileId));
   const groups = useBrowser.getState().groups;

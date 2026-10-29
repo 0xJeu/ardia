@@ -14,7 +14,7 @@ export { Swatch } from "./Swatch";
 export { Switch, Toggle, type SwitchLook } from "./Switch";
 export { Text, type TextProps } from "./Text";
 export { hex, layout, PROFILE_COLORS, useFormColors, useTheme, type FormColors, type Theme } from "./theme";
-export { colorRoles, font, hairline, ink, opacity, radius, shadow, space, swatch, weight, type ColorRole, type Radius, type ShadowLevel, type Space, type TypeSize, type Weight } from "./tokens";
+export { colorRoles, font, hairline, ink, opacity, radius, shadow, space, swatch, weight, withAlpha, type ColorRole, type Radius, type ShadowLevel, type Space, type TypeSize, type Weight } from "./tokens";
 export { TooltipAbove } from "./TooltipAbove";
 export { useHover } from "./useHover";
 export {

@@ -31,9 +31,9 @@ const stateOf = (engine: string) => {
 let legacyMoved = false;
 
 const engineProfiles = (s: Pick<BrowserState, "profiles">) =>
-  [...new Set(Object.keys(s.profiles).filter((id) => !isIncognitoProfile(id)).map(engineProfile))];
+  [...new Set(Object.keys(s.profiles).filter((id) => !isIncognitoProfile(id)).map((id) => engineProfile(s, id)))];
 const profilesUsing = (s: Pick<BrowserState, "profiles">, engine: string) =>
-  Object.keys(s.profiles).filter((id) => !isIncognitoProfile(id) && engineProfile(id) === engine);
+  Object.keys(s.profiles).filter((id) => !isIncognitoProfile(id) && engineProfile(s, id) === engine);
 
 function adopt(engine: string, flat: Flat, { ready = legacyMoved } = {}) {
   useBrowser.setState((s) => {
@@ -165,7 +165,7 @@ function launchTrees(): Record<string, Flat> {
     };
     for (const [profileId, roots] of Object.entries(legacy?.roots ?? {})) {
       if (!s.profiles[profileId] || isIncognitoProfile(profileId)) continue;
-      const engine = engineProfile(profileId);
+      const engine = engineProfile(s, profileId);
       if (out[engine]) continue;
       const ids = rootIdsFor(engine);
       const id = (old: string) => (old === roots.bar ? ids.bar : old === roots.other ? ids.other : uuidOf(old));
@@ -213,7 +213,7 @@ export async function migrateBookmarksFile({ keepMs = LEGACY_KEPT_MS } = {}): Pr
   try {
     for (const [profileId, roots] of Object.entries(b.roots ?? {})) {
       if (!s.profiles[profileId] || isIncognitoProfile(profileId)) continue;
-      const engine = engineProfile(profileId);
+      const engine = engineProfile(s, profileId);
       if (done.has(engine)) continue;
       done.add(engine);
       const ops: BookmarkOp[] = [];
