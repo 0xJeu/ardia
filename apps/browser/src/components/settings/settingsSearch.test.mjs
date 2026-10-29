@@ -80,7 +80,10 @@ test("every indexed setting is anchored in its pane, and every anchor is indexed
     .map((f) => readFileSync(new URL(f, dir), "utf8"))
     .join("\n");
   const panes = new Set(SETTINGS.map((s) => s.pane));
-  const anchors = new Set([...sources.matchAll(/["`]([a-zA-Z]+)\.([a-zA-Z]+)["`]/g)].filter((m) => panes.has(m[1])).map((m) => `${m[1]}.${m[2]}`));
+  const anchors = new Set([
+    ...[...sources.matchAll(/["`]([a-zA-Z]+)\.([a-zA-Z]+)["`]/g)].filter((m) => panes.has(m[1])).map((m) => `${m[1]}.${m[2]}`),
+    ...[...sources.matchAll(/<SourceRow id="(\w+)"/g)].map((m) => `liveFolders.${m[1]}`),
+  ]);
   const indexed = new Set(SETTINGS.map((s) => s.id));
   for (const id of indexed) assert.ok(anchors.has(id), `${id} is in the index but no pane anchors it`);
   for (const id of anchors) assert.ok(indexed.has(id), `${id} is anchored in a pane but not in the index`);

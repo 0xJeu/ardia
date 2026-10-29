@@ -25,6 +25,7 @@ import { engineProfile } from "../../../state/browser/model";
 import { Button, Checkbox, font, PopUp, Sheet, Toggle, weight } from "../../ui";
 import { Favicon } from "../../favicon/Favicon";
 import { Group, Row, SectionHeader } from "../Form";
+import type { SettingId } from "../settingsIndex";
 import { appLinks, contentBlocker, siteOrigins, zoomLevels } from "../../../state/settings/paneData";
 import { useResource } from "../../../state/settings/resources";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
@@ -33,7 +34,7 @@ import { categoryOn, setBlockingCategory, setFilterList } from "../../../state/s
 import { ShareDiagnosticsSection } from "./ShareDiagnostics";
 import { UI_LOCALE } from "../../../lib/uiLocale";
 
-const CATEGORIES: { id: FilterListCategory; toggle: string; section: string; anchor?: string }[] = [
+const CATEGORIES: { id: FilterListCategory; toggle: string; section: string; anchor?: SettingId }[] = [
   { id: "ads", toggle: "Block ads", section: "Ad blockers", anchor: "privacy.blockAds" },
   { id: "trackers", toggle: "Block trackers", section: "Trackers", anchor: "privacy.blockTrackers" },
   { id: "cookies", toggle: "Block cookie banners", section: "Cookie banners", anchor: "privacy.blockCookieBanners" },

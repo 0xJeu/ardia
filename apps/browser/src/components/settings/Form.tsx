@@ -8,7 +8,10 @@ import { Group as PlainGroup, Row as PlainRow } from "../ui/Row";
 import { useTheme } from "../ui/theme";
 import { font, space, weight } from "../ui/tokens";
 import { liquidGlass } from "../ui/Glass";
-import { findSetting, sectionEntries, setting, unshownSettings, type SettingEntry } from "./settingsIndex";
+import { findSetting, sectionEntries, setting, unshownSettings, type SettingEntry, type SettingId } from "./settingsIndex";
+import { Toggle } from "../ui/Switch";
+import { updateSettings } from "../../state/settings/actions";
+import type { Settings } from "../../state/settings/settings";
 import { settingsMotion } from "./tokens";
 
 export const SettingsPaneContext = createContext<SettingsPane | null>(null);
@@ -34,7 +37,7 @@ function useHiddenSection(pane: SettingsPane | null | undefined, section: string
   return entries.length > 0 && entries.every(hidden);
 }
 
-export function Group({ children, style, of }: { children: ReactNode; style?: StyleProp<ViewStyle>; of?: string }) {
+export function Group({ children, style, of }: { children: ReactNode; style?: StyleProp<ViewStyle>; of?: SettingId }) {
   const hidden = useHiddenSetting();
   if (of && hidden(findSetting(of))) return null;
   const rows = Children.toArray(children).filter(
@@ -44,7 +47,7 @@ export function Group({ children, style, of }: { children: ReactNode; style?: St
   return <PlainGroup style={style}>{rows}</PlainGroup>;
 }
 
-export function Anchor({ id, children, radius = 0, style, keep }: { id?: string; children: ReactNode; radius?: number; style?: StyleProp<ViewStyle>; keep?: boolean }) {
+export function Anchor({ id, children, radius = 0, style, keep }: { id?: SettingId; children: ReactNode; radius?: number; style?: StyleProp<ViewStyle>; keep?: boolean }) {
   const hidden = useHiddenSetting();
   if (!keep && id && hidden(findSetting(id))) return null;
   return (
@@ -54,7 +57,7 @@ export function Anchor({ id, children, radius = 0, style, keep }: { id?: string;
   );
 }
 
-function ShownAnchor({ id, children, radius, style }: { id?: string; children: ReactNode; radius: number; style?: StyleProp<ViewStyle> }) {
+function ShownAnchor({ id, children, radius, style }: { id?: SettingId; children: ReactNode; radius: number; style?: StyleProp<ViewStyle> }) {
   const theme = useTheme();
   const ref = useRef<View>(null);
   const flash = useSettingsSearch((s) => (id && s.flash?.id === id ? s.flash.at : 0));
@@ -80,17 +83,18 @@ function ShownAnchor({ id, children, radius, style }: { id?: string; children: R
   );
 }
 
-export function SectionHeader({ title, description, action, anchor }: { title?: string; description?: string; action?: ReactNode; anchor?: string }) {
+export function SectionHeader({ title, description, action, anchor }: { title?: string; description?: string | null; action?: ReactNode; anchor?: SettingId }) {
   const theme = useTheme();
   const pane = useContext(SettingsPaneContext);
   const entry = anchor ? setting(anchor) : undefined;
   const text = title ?? entry?.section ?? "";
+  const detail = description === undefined ? entry?.description : description;
   if (useHiddenSection(entry?.pane ?? pane, entry?.section ?? title)) return null;
   return (
     <Anchor id={anchor} keep radius={6} style={{ flexDirection: "row", alignItems: "flex-end", marginTop: 22, marginBottom: space.m, paddingHorizontal: space.xxs }}>
       <View style={{ flex: 1 }}>
         <Text style={{ ...font.body, fontWeight: weight.semibold, color: theme.textPrimary }}>{text}</Text>
-        {description ? <Text style={{ ...font.small, marginTop: 3, color: theme.textSecondary, lineHeight: 16 }}>{description}</Text> : null}
+        {detail ? <Text style={{ ...font.small, marginTop: 3, color: theme.textSecondary, lineHeight: 16 }}>{detail}</Text> : null}
       </View>
       {action}
     </Anchor>
@@ -110,7 +114,7 @@ export function Row({
   children?: ReactNode;
   icon?: ReactNode;
   onPress?: () => void;
-  anchor?: string;
+  anchor?: SettingId;
 }) {
   const entry = anchor ? setting(anchor) : undefined;
   const row = (
@@ -119,4 +123,16 @@ export function Row({
     </PlainRow>
   );
   return anchor ? <Anchor id={anchor}>{row}</Anchor> : row;
+}
+
+type BooleanSettingKey = { [K in keyof Settings]: Settings[K] extends boolean ? K : never }[keyof Settings];
+
+export function SettingToggle({ anchor, description }: { anchor: SettingId & `${string}.${BooleanSettingKey}`; description?: ReactNode }) {
+  const key = anchor.slice(anchor.indexOf(".") + 1) as BooleanSettingKey;
+  const value = useSettings((s) => s[key]);
+  return (
+    <Row anchor={anchor} description={description}>
+      <Toggle value={value} onChange={(on) => updateSettings({ [key]: on })} />
+    </Row>
+  );
 }
