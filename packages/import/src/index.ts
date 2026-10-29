@@ -1,3 +1,4 @@
+import { ArdiaError, ardiaError, type TabGroupColor } from "@ardia/core";
 import { requireNativeModule, type EventSubscription } from "expo-modules-core";
 
 export type ImportKind =
@@ -77,7 +78,6 @@ export type ImportedTab = {
   lastActive?: number;
 };
 
-export type TabGroupColor = "grey" | "blue" | "red" | "yellow" | "green" | "pink" | "purple" | "cyan" | "orange";
 export type ImportedTabGroup = { id: string; title: string; color: TabGroupColor | (string & {}); collapsed: boolean };
 
 export type Credential = {
@@ -194,16 +194,6 @@ export type DiaTabsResult = {
   favicons: ImportedFavicon[];
 };
 
-export class ImportError extends Error {
-  readonly code: string;
-
-  constructor(code: string, message: string) {
-    super(message);
-    this.code = code;
-    this.name = "ImportError";
-  }
-}
-
 type ImportEvent =
   | ({ jobId: string; type: "progress" } & ImportProgress)
   | { jobId: string; type: "history"; entries: string };
@@ -236,14 +226,13 @@ async function call<T>(promise: Promise<string | null>): Promise<T> {
     const json = await promise;
     return (json == null ? undefined : JSON.parse(json)) as T;
   } catch (e) {
-    const err = e as { code?: string; message?: string };
-    throw new ImportError(err.code ?? "unreadable", err.message ?? String(e));
+    throw ardiaError(e);
   }
 }
 
 async function job<T>(options: ImportOptions, start: (jobId: string) => Promise<string>): Promise<T> {
   const jobId = `import-${++jobSeq}`;
-  if (options.signal?.aborted) throw new ImportError("cancelled", "Import cancelled");
+  if (options.signal?.aborted) throw new ArdiaError("cancelled", "Import cancelled");
   const sub = Native.addListener("onImportEvent", (e) => {
     if (e.jobId !== jobId) return;
     if (e.type === "history") options.onHistoryChunk?.(JSON.parse(e.entries) as ImportedHistoryEntry[]);

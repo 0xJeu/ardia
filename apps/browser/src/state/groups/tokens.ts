@@ -1,3 +1,4 @@
+import { TAB_GROUP_COLORS } from "@ardia/core";
 import type { GroupColor } from "../browser/types";
 
 export type GroupTint = Exclude<GroupColor, "none">;
@@ -18,7 +19,7 @@ export const NEUTRAL_GROUP_SWATCH = { light: "#0000004D", dark: "#FFFFFF4D" };
 
 export const NO_GROUP_COLOR_SWATCH = "#00000000";
 
-export const GROUP_COLOR_ORDER: GroupTint[] = ["grey", "blue", "red", "yellow", "green", "pink", "purple", "cyan", "orange"];
+export const GROUP_COLOR_ORDER: readonly GroupTint[] = TAB_GROUP_COLORS;
 
 export function nearestGroupColor(color: string): GroupTint | null {
   const m = color.trim().match(/^#?([0-9a-f]{6})/i) ?? color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+)/);

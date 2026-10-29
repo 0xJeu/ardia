@@ -1,3 +1,4 @@
+import type { TabGroupColor } from "@ardia/core";
 import type { PageEngine } from "../../platform/tabs";
 import type { ProfileColor, ProfileTheme } from "../../lib/profileLook";
 
@@ -71,7 +72,7 @@ export type TabLive = {
   themeColor: string | null;
 };
 
-export type GroupColor = "grey" | "blue" | "red" | "yellow" | "green" | "pink" | "purple" | "cyan" | "orange" | "none";
+export type GroupColor = TabGroupColor | "none";
 
 export type ClosedGroupInfo = Pick<TabGroup, "id" | "name" | "icon" | "color"> & { pinned?: boolean };
 

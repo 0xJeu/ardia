@@ -18,6 +18,6 @@ export * from "./bookmarks";
 export * from "./swipe";
 export * from "./tabStrip";
 export * from "./webkit";
-export { ArdiaError, call, on, type CallName, type EventName } from "./engine/call";
+export { call, on, type CallName, type EventName } from "./engine/call";
 export type { EngineCalls, EngineEvents } from "./engine/api";
 export type { ArdiaCoreNativeModules } from "./nativeModules";
