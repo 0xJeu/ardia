@@ -61,7 +61,7 @@ test("Move Back goes away once the tab leaves the moved site, and never saves a 
   const tabId = model.activeTabId(S(), w);
   S().updateTab(tabId, { engine: "chromium", url: "https://www.netflix.com/watch/1" });
   webviews.set(tabId, { evaluate: () => Promise.resolve(false) });
-  offerWebKit(tabId, { keySystem: "com.widevine.alpha" });
+  offerWebKit(tabId, { keySystem: "com.widevine.alpha", main: true });
   await settle();
   const toast = toasts.get(w);
   assert.equal(toast?.action?.title, "Move Back");

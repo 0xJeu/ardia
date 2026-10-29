@@ -448,7 +448,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
       emit("favicon", ["url": first, "urls": urls])
     case "scroll":
       guard main, let state = dict?["state"] as? String, ["down", "up", "top"].contains(state) else { return }
-      emit("pageMessage", ["kind": "scroll", "data": ["state": state]])
+      emit("scroll", ["state": state])
     default: break
     }
   }

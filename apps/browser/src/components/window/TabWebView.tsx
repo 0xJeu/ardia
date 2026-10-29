@@ -29,7 +29,7 @@ import { zoomChangedByUser } from "../../state/site/zoomBubble";
 import { markTabReady, patchPage, pageOf, popoverOf, setPopover } from "../../state/tabs/pageState";
 import { closeFolderPanelIn } from "../../state/sidebar/tileFolderUi";
 import { answerExternalApp, shouldPromptForPopups, showAutofillPrompt, showPasswordPrompt } from "../site/Prompts";
-import { copyLinkToSelection, searchSelection, setPageSelection, type PageSelection } from "../../state/site/selection";
+import { copyLinkToSelection, searchSelection, setPageSelection } from "../../state/site/selection";
 import { useAutoPictureInPicture } from "../../state/media/pip";
 import { requestDisplayMedia } from "../../state/media/screenShare";
 import { setNowPlaying, setPictureInPictureState } from "../../state/media/media";
@@ -233,11 +233,9 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
         else if (command === "escape" && popoverOf(tabId)) setPopover(tabId, null);
         else if (command === "escape" && !closeFolderPanelIn(tab()?.windowId) && !closePeekOnEscape(tabId)) closeLittleArdiaOnEscape(tabId);
       }}
-      onPageMessage={(kind, data) => {
-        if (kind === "selection") setPageSelection(tabId, data as PageSelection | null);
-        else if (kind === "scroll") noteScroll(tabId, data);
-        else if (kind === "drm") offerWebKit(tabId, data);
-      }}
+      onSelection={(selection) => setPageSelection(tabId, selection)}
+      onScroll={(state) => noteScroll(tabId, state)}
+      onProtectedMedia={(request) => offerWebKit(tabId, request)}
       onNotificationClose={closeWebNotification}
       onDiscarded={(url) => {
         pending.current = url;

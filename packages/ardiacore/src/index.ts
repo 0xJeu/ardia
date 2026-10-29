@@ -1,5 +1,6 @@
 export * from "./WebView";
 export * from "./pageTypes";
+export type { PageEventName } from "./pageEvents";
 export * from "./module";
 export * from "./contentBlocker";
 export * from "./siteSettings";

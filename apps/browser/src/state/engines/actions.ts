@@ -1,5 +1,5 @@
 import { addHistoryVisits } from "../../platform/history";
-import type { PageEngine } from "../../platform/tabs";
+import type { PageEngine, ProtectedMediaRequest } from "../../platform/tabs";
 import { confirm } from "../../platform/dialogs";
 import { create } from "zustand";
 import { useBrowser } from "../browser/store";
@@ -94,7 +94,7 @@ export async function openPageIn(tabId: string, engine: PageEngine, options: { r
 
 export const togglePageEngine = (tabId: string) => openPageIn(tabId, tabEngine(store(), tabId) === "webkit" ? "chromium" : "webkit");
 
-export function offerWebKit(tabId: string, data: unknown) {
+export function offerWebKit(tabId: string, { keySystem }: ProtectedMediaRequest) {
   const s = store();
   const t = s.tabs[tabId];
   if (!t || tabEngine(s, tabId) === "webkit") return;
@@ -104,7 +104,6 @@ export function offerWebKit(tabId: string, data: unknown) {
   if (rule === "chromium" || declinedSites.has(site)) return;
   if (rule === "webkit") return void moveForProtectedVideo(tabId, site);
   if (useEngineOffers.getState()[tabId]?.site === site) return;
-  const keySystem = typeof (data as { keySystem?: unknown } | null)?.keySystem === "string" ? (data as { keySystem: string }).keySystem : "";
   useEngineOffers.setState({ [tabId]: { site, host: hostLabel(site), keySystem, canRemember: !isIncognitoProfile(t.profileId) } });
 }
 
