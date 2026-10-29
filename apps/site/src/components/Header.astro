@@ -337,7 +337,7 @@ const pages: { page: Page; href: string; section?: string; label: string; menuLa
 </style>
 
 <script>
-  import { track } from "../scripts/track";
+  import { capture } from "../scripts/telemetry";
 
   const bar = document.querySelector<HTMLElement>("[data-bar]")!;
   const sentinel = document.querySelector<HTMLElement>("[data-bar-sentinel]")!;
@@ -359,7 +359,7 @@ const pages: { page: Page; href: string; section?: string; label: string; menuLa
   const mark = bar.querySelector<HTMLAnchorElement>("[data-press]")!;
   mark.addEventListener("contextmenu", (e) => {
     e.preventDefault();
-    track("press_kit_opened", { via: "logo" }, { send_instantly: true });
+    capture("press_kit_opened", { via: "logo" }, { send_instantly: true });
     location.href = mark.dataset.press!;
   });
 
