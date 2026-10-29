@@ -408,7 +408,7 @@ const fakeModules = {
     syncState: passing("ac_extensions_sync_state"),
     syncApply: passing("ac_extensions_sync_apply"),
   }),
-  ArdiaSearch: domain("search", { engines: () => ({ list: [] }), setEngineName: () => null }),
+  ArdiaSearch: domain("search", { engines: () => ({ list: { engines: [] } }), setEngineName: () => null }),
   ArdiaMedia: domain("media", {
     displayMediaSources: () => [],
     selectDevice: () => null,

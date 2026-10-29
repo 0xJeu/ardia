@@ -1,3 +1,4 @@
+import type { ExtensionSearchEngine } from "@ardia/core";
 import { call, on } from "./engine/call";
 
 export type SiteAccess = "ON_ALL_SITES" | "ON_SPECIFIC_SITES" | "ON_CLICK";
@@ -112,8 +113,36 @@ export function webStoreExtensionId(urlOrId: string): string | null {
   }
 }
 
-export async function searchEngineList(profile: string): Promise<unknown> {
-  return (await call("search.engines", { profile })).list;
+export type ChromeSearchEngine = {
+  name: string;
+  keyword: string;
+  url: string;
+  suggestionsUrl: string;
+  default: boolean;
+  isOmniboxExtension: boolean;
+  extension?: { id: string; name: string };
+};
+
+const withoutPlaceholders = (url: string) => url.replace(/\{[^{}%]*\}/g, "");
+
+export async function extensionSearchEngines(profile: string): Promise<ExtensionSearchEngine[]> {
+  const { list } = await call("search.engines", { profile });
+  const engines: ExtensionSearchEngine[] = [];
+  for (const e of list.engines) {
+    const extension = e.extension;
+    if (!extension || e.isOmniboxExtension || !e.url.includes("%s") || engines.some((o) => o.extensionId === extension.id)) continue;
+    engines.push({
+      profile,
+      extensionId: extension.id,
+      extensionName: extension.name,
+      name: e.name || extension.name,
+      keyword: e.keyword,
+      url: withoutPlaceholders(e.url),
+      suggestUrl: e.suggestionsUrl.includes("%s") ? withoutPlaceholders(e.suggestionsUrl) : undefined,
+      isDefault: e.default,
+    });
+  }
+  return engines;
 }
 
 export async function listExtensions(profile: string): Promise<InstalledExtension[]> {

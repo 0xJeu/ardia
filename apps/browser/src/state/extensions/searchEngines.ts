@@ -1,5 +1,5 @@
-import { searchEngineList } from "../../platform/extensions";
-import { extensionEnginesFromChrome } from "@ardia/core";
+import type { ExtensionSearchEngine } from "@ardia/core";
+import { extensionSearchEngines } from "../../platform/extensions";
 import { useBrowser } from "../browser/store";
 import { useExtensions } from "./actions";
 
@@ -19,15 +19,13 @@ export function startExtensionSearchEngines() {
 }
 
 async function refreshExtensionSearchEngines(profile: string) {
-  let list: unknown;
+  let engines: ExtensionSearchEngine[];
   try {
-    list = await searchEngineList(profile);
+    engines = await extensionSearchEngines(profile);
   } catch (error) {
     console.warn("[extensions] search engines failed", error);
     return;
   }
-  if (list == null) return;
-  const engines = extensionEnginesFromChrome(profile, list);
   const s = useBrowser.getState();
   const current = s.settings.extensionSearchEngines;
   const next = [...current.filter((e) => e.profile !== profile), ...engines];

@@ -4,7 +4,7 @@ import type { ActionPopupRequest, CastDialog, CastRoute, DeviceChooser, SidePane
 import type { CliControlStatus } from "../cliControl";
 import type { ContentBlockerState, ContentBlockerStats } from "../contentBlocker";
 import type {
-  ActionState, ExtensionActionChange, ExtensionInstallPrompt, ExtensionPackage, ExtensionsChange, ExtensionsSyncApplied, ExtensionsSyncApply,
+  ActionState, ChromeSearchEngine, ExtensionActionChange, ExtensionInstallPrompt, ExtensionPackage, ExtensionsChange, ExtensionsSyncApplied, ExtensionsSyncApply,
   ExtensionsSyncState, ExtensionSyncIntent, InstalledExtension, TabsRequest,
 } from "../extensions";
 import type { HistoryChangedBatch, HistoryWireRow } from "../history";
@@ -118,7 +118,7 @@ export type EngineCalls = {
   "extensions.syncState": [Profile, ExtensionsSyncState];
   "extensions.syncApply": [Profile & ExtensionsSyncApply, ExtensionsSyncApplied];
 
-  "search.engines": [Profile, { list: unknown }];
+  "search.engines": [Profile, { list: { engines: ChromeSearchEngine[] } }];
   "search.setEngineName": [{ name: string }, null];
 
   "media.displayMediaSources": [{}, DisplayMediaSource[]];
