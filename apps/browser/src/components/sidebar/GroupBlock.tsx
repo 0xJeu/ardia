@@ -21,7 +21,6 @@ import { HOVER_CARD_FADE_MS } from "./hoverMotion";
 import { GhostSlot, ListMotionContext, useGroupMotion } from "./ListMotion";
 import { pressGroupClose, useGroupCloseControlWhile } from "../../state/sidebar/closeControl";
 import { openGroupMenu } from "../../state/sidebar/menus";
-import { groupColorMenu } from "./groupColorMenu";
 import { registerRow, useSidebarUi } from "../../state/sidebar/sidebarUi";
 import { TabIcon } from "./TabIcon";
 import { RenameField, SplitRowItem, TabRowItem } from "./TabRow";
@@ -170,7 +169,7 @@ function GroupHeader({ groupId, windowId, collapsed, open }: { groupId: string; 
       <ContextMenuArea
         onContextMenu={() => {
           dismissHover();
-          void openGroupMenu(windowId, groupId, groupColorMenu);
+          void openGroupMenu(windowId, groupId);
         }}
       >
         <Pressable

@@ -6,8 +6,8 @@ import { useGroupLabel } from "../../state/groups/hooks";
 import { openGroupMenu } from "../../state/sidebar/menus";
 import { openFolderMenu } from "../../state/tabs/topStrip";
 import { setMeasuredWidth, useMeasuredWidth } from "../../state/windows/measuredWidths";
-import { groupColorMenu } from "../sidebar/groupColorMenu";
-import { groupTint, NEUTRAL_GROUP_SWATCH, useSidebarTokens, withAlpha } from "../sidebar/tokens";
+import { groupTint, useSidebarTokens, withAlpha } from "../sidebar/tokens";
+import { NEUTRAL_GROUP_SWATCH } from "../../state/groups/tokens";
 import { ContextMenuArea, Symbol, useHover } from "../ui";
 import { curve } from "../ui/motion";
 import { useTheme } from "../ui/theme";
@@ -109,7 +109,7 @@ function FolderChip({ groupId, holding }: { groupId: string; holding: boolean })
       onLayout={(e) => setMeasuredWidth(folderKey(groupId), Math.ceil(e.nativeEvent.layout.width * 2) / 2)}
       style={{ position: "absolute", left: 0, top: MID - FOLDER_HEIGHT / 2, height: FOLDER_HEIGHT }}
     >
-      <ContextMenuArea onContextMenu={() => void openGroupMenu(windowId, groupId, groupColorMenu)}>
+      <ContextMenuArea onContextMenu={() => void openGroupMenu(windowId, groupId)}>
         <Pressable onPress={() => void openFolderMenu(windowId, groupId)}>
           {({ pressed }) => (
             <View

@@ -10,6 +10,7 @@ import { activeTabId, bookmarkProfileId, inPinnedContainer, pinSection, tabLayou
 import type { ClickMods } from "../drag/drops";
 import { groupLabel, groupOf, selectedTabIds } from "../pins/organize";
 import type { Tab } from "../browser/types";
+import type { BookmarkFolderChoice } from "./menuParts";
 import { measureRow, setSidebarUi, sidebarUi, type Target } from "./sidebarUi";
 
 const store = () => useBrowser.getState();
@@ -114,11 +115,11 @@ export function copyUrls(ids: string[], markdown: boolean) {
   copyText(markdown && lines.length > 1 ? lines.map((l) => `- ${l}`).join("\n") : lines.join("\n"));
 }
 
-export async function bookmarkTabs(windowId: string, ids: string[], folder: string | "bar" | "new") {
+export async function bookmarkTabs(windowId: string, ids: string[], folder: BookmarkFolderChoice) {
   const s = store();
   const profileId = bookmarkProfileId(s, s.windows[windowId]);
-  let parentId: string | undefined = folder === "bar" ? undefined : folder;
-  if (folder === "new") {
+  let parentId = folder.kind === "folder" ? folder.parentId : undefined;
+  if (folder.kind === "newFolder") {
     const title = await prompt({ title: "New Folder", placeholder: "Folder name", confirmTitle: "Create", windowId });
     if (!title) return;
     parentId = store().addBookmarkFolder({ profileId, title });

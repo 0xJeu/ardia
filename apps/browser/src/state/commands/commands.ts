@@ -60,6 +60,8 @@ import { peekTabId } from "../peek/peek";
 import { expectFocus, findFocus } from "../focus/focusClaims";
 import { isWebPageUrl } from "../../lib/url";
 
+const newOrId = (arg: string) => (arg === "new" ? null : arg);
+
 export function runCommand({ command, arg, windowId: requested }: CommandEvent) {
   const s = useBrowser.getState();
 
@@ -268,9 +270,9 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
     case "duplicateTab":
       return tab ? void s.duplicateTab(tab.id) : undefined;
     case "moveTabToProfile":
-      return tab && arg ? void moveTabToProfile(tab.id, arg) : undefined;
+      return tab && arg ? void moveTabToProfile(tab.id, newOrId(arg)) : undefined;
     case "moveTabToWindow":
-      return tab && arg ? moveTabToWindow(tab.id, arg) : undefined;
+      return tab && arg ? moveTabToWindow(tab.id, newOrId(arg)) : undefined;
     case "bookmarkPage":
       return page ? bookmarkTab(windowId, page.id) : undefined;
     case "addBookmarkToFolder":
