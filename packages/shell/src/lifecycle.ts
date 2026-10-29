@@ -8,6 +8,7 @@ export type AppEvent =
   | { type: "quitWarningSuppressed" }
   | { type: "resignActive" }
   | { type: "screenLocked" }
+  | { type: "lockedOrAsleep" }
   | { type: "switcherReleased" }
   | { type: "switcherKey"; key: "escape" | "next" | "previous" }
   | { type: "switcherMouseUp" }

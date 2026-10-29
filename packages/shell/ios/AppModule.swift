@@ -6,7 +6,7 @@ import ExpoModulesCore
 public class AppModule: Module {
   public func definition() -> ModuleDefinition {
     Name("ArdiaApp")
-    Constant("apiVersion") { () -> Int in 24 }
+    Constant("apiVersion") { () -> Int in 25 }
     Events("onNotificationResponse", "onScriptCommand")
 
     OnCreate {
@@ -38,7 +38,7 @@ public class AppModule: Module {
     AsyncFunction("checkForUpdates") { AppUpdater.shared.checkForUpdates(nil) }.runOnQueue(.main)
     AsyncFunction("setAutomaticUpdateChecks") { (on: Bool) in AppUpdater.shared.setAutomaticChecks(on) }.runOnQueue(.main)
     AsyncFunction("setAutomaticUpdateDownloads") { (on: Bool) in AppUpdater.shared.setAutomaticDownloads(on) }.runOnQueue(.main)
-    AsyncFunction("setUpdateChannel") { (channel: String) in AppUpdater.shared.setChannel(channel) }.runOnQueue(.main)
+    AsyncFunction("setUpdateChannel") { (channel: UpdateChannel) in AppUpdater.shared.setChannel(channel) }.runOnQueue(.main)
 
     AsyncFunction("setWindowActivity") { (windowId: String, url: String?, title: String?) in
       Handoff.setActivity(windowId: windowId, url: url, title: title)

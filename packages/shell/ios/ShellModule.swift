@@ -391,8 +391,13 @@ public class ShellModule: Module {
     }))
     let distributed = DistributedNotificationCenter.default()
     sidebarObservers.append((distributed, distributed.addObserver(forName: .init("com.apple.screenIsLocked"), object: nil, queue: .main) { _ in
+      emit("lockedOrAsleep")
       if quiet() { emit("screenLocked") }
     }))
+    let session = NSWorkspace.shared.notificationCenter
+    for name in [NSWorkspace.willSleepNotification, NSWorkspace.screensDidSleepNotification, NSWorkspace.sessionDidResignActiveNotification] {
+      sidebarObservers.append((session, session.addObserver(forName: name, object: nil, queue: .main) { _ in emit("lockedOrAsleep") }))
+    }
     SwitcherHold.onRelease = { emit("switcherReleased") }
     flagsMonitor = NSEvent.addLocalMonitorForEvents(matching: .flagsChanged) { event in
       if SwitcherHold.released(by: event.modifierFlags) { emit("switcherReleased") }
