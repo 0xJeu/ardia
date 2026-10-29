@@ -1,7 +1,6 @@
 import { memo } from "react";
-import { Animated, Pressable, View } from "react-native";
-import { closeTab } from "../../state/browser/actions";
-import { ContextMenuArea, MouseArea, Symbol } from "../ui";
+import { Animated, View } from "react-native";
+import { Symbol } from "../ui";
 import { layout, useTheme } from "../ui/theme";
 import { useAddressBarInSidebar } from "../../state/windows/layout";
 import { listTopGap } from "./geometry";
@@ -9,18 +8,17 @@ import { useIsActiveTab, useSettings, useTab, useTabLive, useWindowId } from "..
 import { useIsSelected } from "../../state/pins/hooks";
 import { useMuteState } from "../../state/tabs/hooks";
 import { NextMeetingBadge } from "../live/NextMeetingBadge";
-import { clickTab, returnShownTabToPinnedUrl } from "../../state/sidebar/actions";
+import { returnShownTabToPinnedUrl } from "../../state/sidebar/actions";
 import { cellKey, PIN_SLOT } from "./dragModel";
 import { useDragController, useDragging, useDragItem, useDropPins, useFolderTarget, usePinnedCount, usePinSlots } from "./DragProvider";
 import { FolderTile } from "./FolderTile";
-import { dismissHover, useRowHover } from "../../state/sidebar/hover";
-import { openTabMenu } from "../../state/sidebar/menus";
+import { useRowHover } from "../../state/sidebar/hover";
 import { pinGrid, pinGridHeight, TILE_GAP } from "./pinZone";
 import { registerRow } from "../../state/sidebar/sidebarUi";
-import { modifiersOf } from "../../lib/keys";
 import { FolderDropRing, TileFace, useSlotPosition } from "./TileFace";
 import { folderIdOfCell } from "../../state/pins/tileFolders";
 import { useSidebarTokens } from "./tokens";
+import { TabPressArea } from "./TabPressArea";
 
 export const PinnedGrid = memo(function PinnedGrid({ tabs, innerWidth, flush = false }: { tabs: string[]; innerWidth: number; flush?: boolean }) {
   const controller = useDragController();
@@ -161,23 +159,9 @@ const PinnedTile = memo(function PinnedTile({ tabId, width, sliding, x, y }: { t
         {...hoverProps}
         onDoubleClick={() => returnShownTabToPinnedUrl(windowId, tabId)}
       >
-        <MouseArea onMiddleClick={() => void closeTab(tabId)}>
-          <ContextMenuArea
-            onContextMenu={() => {
-              dismissHover();
-              void openTabMenu(windowId, tab);
-            }}
-          >
-            <Pressable
-              onPress={(e) => {
-                dismissHover();
-                clickTab(windowId, tabId, modifiersOf(e));
-              }}
-            >
-              {({ pressed }) => <TileFace tabId={tabId} width={width} active={active} selected={selected} hovered={hovered} pressed={pressed} />}
-            </Pressable>
-          </ContextMenuArea>
-        </MouseArea>
+        <TabPressArea windowId={windowId} tab={tab}>
+          {({ pressed }) => <TileFace tabId={tabId} width={width} active={active} selected={selected} hovered={hovered} pressed={pressed} />}
+        </TabPressArea>
         <NextMeetingBadge tabId={tabId} />
         {playing || mute ? (
           <View pointerEvents="none" style={{ position: "absolute", bottom: 3, right: 4 }}>
