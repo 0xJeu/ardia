@@ -74,7 +74,7 @@ let indicatorHide: ReturnType<typeof setTimeout> | null = null;
 
 function updateIndicator({ server }: CliState) {
   const on = server?.state === "on";
-  const connected = on && (server.connections ?? 0) > 0;
+  const connected = on && server.connections > 0;
   if (connected || !on) {
     if (indicatorHide) clearTimeout(indicatorHide);
     indicatorHide = null;
@@ -171,8 +171,9 @@ export function startCliControl() {
   let inFlight = 0;
   let newest = 0;
   const apply = (server: CliControlStatus, mayReconcile: boolean) => {
-    if ((server.generation ?? newest) < newest) return;
-    newest = Math.max(newest, server.generation ?? 0);
+    const generation = server.state === "external" ? newest : server.generation;
+    if (generation < newest) return;
+    newest = generation;
     useCli.setState({ server });
     const stoppedItself = server.state === "off" && !!server.reason;
     if (mayReconcile && stoppedItself && useBrowser.getState().settings.cliControl) useBrowser.getState().updateSettings({ cliControl: false });
@@ -191,7 +192,9 @@ export function startCliControl() {
       if (request === latest) apply(server, true);
     };
     const call = first && !on ? cliControlStatus() : setCliControl(on);
-    void call.then(settle, (e: unknown) => settle({ state: "off", reason: errorText(e) }));
+    void call.then(settle, (e: unknown) =>
+      settle({ state: "off", connections: 0, generation: newest, file: "", reason: errorText(e) }),
+    );
   };
   sync();
   useBrowser.subscribe(() => {

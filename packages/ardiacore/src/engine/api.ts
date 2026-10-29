@@ -31,10 +31,13 @@ export type EngineCalls = {
   "engine.isTracing": [{}, boolean];
   "engine.systemState": [{}, SystemState];
   "engine.batterySaver": [{ mode: BatterySaverMode }, BatterySaverState];
-  "engine.memorySaver": [MemorySaverRequest | { validate: string }, Partial<MemorySaverState> & { valid?: boolean }];
+  "engine.memorySaver": [MemorySaverRequest, MemorySaverState];
+  "engine.validateKeepActiveSite": [{ site: string }, { valid: boolean }];
   "engine.trimMemory": [{}, { ok: boolean }];
   "engine.openTaskManager": [{}, { ok: boolean }];
-  "engine.cliControl": [{ on?: boolean; activeTab?: string | null }, CliControlStatus];
+  "engine.cliControlStatus": [{}, CliControlStatus];
+  "engine.setCliControl": [{ on: boolean }, CliControlStatus];
+  "engine.setCliActiveTab": [{ tabId: string | null }, CliControlStatus];
 
   "tabs.routeLinkTabs": [{ urls: string[] }, LinkRoute];
   "tabs.stripCommand": [{ id: number; command: TabStripCommand }, null];
@@ -181,7 +184,7 @@ export type EnginePayload = { profile: string } & Record<string, unknown>;
 
 export type EngineEvents = {
   "engine.systemState": SystemState;
-  "engine.cliControl": EnginePayload;
+  "engine.cliControl": CliControlStatus;
   "tabs.strips": TabStripTransaction;
   "downloads.changed": Download;
   "permissions.requested": PermissionRequest;

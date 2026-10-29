@@ -1703,8 +1703,8 @@ try {
       out.off = await until("Memory Saver off", async () => { const r = await read(); return r.state === "off" && !r.active ? r : null; }, 5000);
       await set({ memorySaver: true, memorySaverMode: "maximum", keepActiveSites: ["127.0.0.1/Editor?Doc=AbC", "[*.]example.com"] });
       out.on = await until("Memory Saver on", async () => { const r = await read(); return r.state === "on" && r.active && r.aggressiveness === "maximum" && r.sites.length === 2 ? r : null; }, 5000);
-      out.valid = await engine("engine.memorySaver", { validate: "music.youtube.com" });
-      out.invalid = await engine("engine.memorySaver", { validate: "" });
+      out.valid = await engine("engine.validateKeepActiveSite", { site: "music.youtube.com" });
+      out.invalid = await engine("engine.validateKeepActiveSite", { site: "" });
       const problems = [];
       if (out.launch.state !== (saved.memorySaver === false ? "off" : "on")) problems.push(`launch: ${JSON.stringify(out.launch)}`);
       if (!out.on.sites.includes("127.0.0.1/Editor?Doc=AbC")) problems.push(`sites: ${JSON.stringify(out.on.sites)}`);
