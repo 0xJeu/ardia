@@ -1,8 +1,7 @@
 import { useTheme } from "../ui/theme";
-import { colorRoles, ink, shadow, type ShadowLevel } from "../ui/tokens";
+import { colorRoles, ink, shadow, withAlpha, type ShadowLevel } from "../ui/tokens";
 import type { GroupColor } from "../../state/browser/types";
 import { GROUP_COLORS } from "../../state/groups/tokens";
-import { withAlpha } from "../../lib/color";
 
 const DARK = {
   groupFill: "rgba(255,255,255,0.1)",

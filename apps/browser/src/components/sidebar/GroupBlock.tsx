@@ -9,7 +9,7 @@ import { newCapture } from "../../state/sidebar/listCapture";
 import { useCapturedGroupEntries, useGroupFirstTabIcon, useKeptEntry } from "../../state/sidebar/hooks";
 import { MeetingTimeLabel, useMeetingCountdown } from "../live/MeetingCountdown";
 import { HoverSlot } from "../ui/HoverSlot";
-import { Button, ContextMenuArea, FadeLabel, font, ink, radius, Surface, Symbol, weight } from "../ui";
+import { Button, ContextMenuArea, FadeLabel, font, ink, radius, Surface, Symbol, weight, withAlpha } from "../ui";
 import { commitRename, endRename, startRename } from "../../state/sidebar/actions";
 import { useDragFolded, useDragItem, useDropInto } from "./DragProvider";
 import { useShift, type EntryMotion } from "./EntryMotion";
@@ -25,7 +25,6 @@ import { registerRow, useSidebarUi } from "../../state/sidebar/sidebarUi";
 import { TabIcon } from "./TabIcon";
 import { RenameField, SplitRowItem, TabRowItem } from "./TabRow";
 import { groupSurface, TABULAR_NUMS, useSidebarTokens } from "./tokens";
-import { withAlpha } from "../../lib/color";
 import { curve } from "../ui/motion";
 
 const PAD = GROUP_PAD;

@@ -32,11 +32,6 @@ export function over(top: string, under: string): string {
   return toHex([r, g, b].map((v, i) => a * v + (1 - a) * base[i]!));
 }
 
-export function withAlpha(color: string, alpha: number): string {
-  const [r, g, b] = parseColor(color);
-  return `rgba(${r},${g},${b},${alpha})`;
-}
-
 export function luminance(color: string): number {
   if (!isHexColor(color)) return 0;
   const [r, g, b] = parseColor(color).map((v) => {

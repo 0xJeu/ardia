@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-const { isLight, mix, over, parseColor, toHex, withAlpha } = await import("./color.ts");
+const { isLight, mix, over, parseColor, toHex } = await import("./color.ts");
 
 test("light and dark backgrounds split where the toolbar's ink flips", () => {
   assert.equal(isLight("#F3EEE4"), true);
@@ -27,5 +27,4 @@ test("hex output is clamped, rounded and upper case", () => {
   assert.equal(mix("#000000", "#ffffff", 0.5), "#808080");
   assert.equal(over("#FFFFFF80", "#000000"), "#808080");
   assert.equal(over("rgba(255,0,0,0.25)", "#0000ff"), "#4000BF");
-  assert.equal(withAlpha("#336699", 0.3), "rgba(51,102,153,0.3)");
 });
