@@ -124,14 +124,14 @@ const builders: Record<string, () => Promise<Buffer> | Buffer> = {
   ),
   ...Object.fromEntries(
     SHOTS.map(({ id }) => [
-      `ardia-screenshot-${id}.png`,
-      () => sharp(`${siteRoot}/src/assets/shots/${id}.webp`).png({ compressionLevel: 9 }).toBuffer(),
+      `ardia-screenshot-${id}.jpg`,
+      () => sharp(`${siteRoot}/src/assets/shots/${id}.webp`).jpeg({ quality: 92, mozjpeg: true }).toBuffer(),
     ]),
   ),
 };
 
 export const logoFile = (id: string, format: Format) => `ardia-${id}.${format}`;
-export const shotFile = (id: string) => `ardia-screenshot-${id}.png`;
+export const shotFile = (id: string) => `ardia-screenshot-${id}.jpg`;
 export const PRESS_FILES = Object.keys(builders);
 export const ZIP_NAME = "ardia-press-kit.zip";
 
