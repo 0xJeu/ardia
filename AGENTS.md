@@ -107,7 +107,7 @@ For the architecture and the test tooling, read `docs/agent-brief.md`.
   - run `scripts/release.sh`, which signs and notarizes;
   - run the smoke test;
   - publish the GitHub release and the appcast;
-  - bump `VERSION` in `apps/site/src/data/release.ts`;
+  - point the site at it (`.claude/skills/release/scripts/site-version.mjs <version>`);
   - deploy the site with `pnpm -C apps/site run deploy`.
 
   The owner has authorized releases to go all the way through. After an update, the app opens the

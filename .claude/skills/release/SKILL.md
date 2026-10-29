@@ -356,17 +356,17 @@ writes `/Applications/Ardia.app`): `brew audit --cask --online mantrakp04/tap/ar
 
 ## 6. Deploy the site
 
-The download button builds its URL from `VERSION` (`releases/latest/download/Ardia-<VERSION>.dmg`),
-so it 404s the moment a newer release is published until this is bumped:
+The download buttons and the root `README.md` (the landing page on GitHub) link the DMG of one tag
+(`releases/download/v<VERSION>/Ardia-<VERSION>.dmg`), so they keep working after a publish and only point at the
+older version until this step. After a stable publish, point both at it:
 
 ```bash
-size=$(gh release view v<version> -R mantrakp04/ardia --json assets -q '.assets[] | select(.name|endswith(".dmg")) | .size' | awk '{printf "%.0f MB", $1/1000000}')
-# set VERSION = "<version>" and DMG_SIZE = "$size" in apps/site/src/data/release.ts
+.claude/skills/release/scripts/site-version.mjs <version>
 ```
 
-The root `README.md` is the landing page on GitHub and carries the same link: replace the old version and size there
-too (both download links, the "Download Ardia <version>" labels and the "<size> DMG" line), and commit it with
-`release.ts`. If a release changes a claim on the landing page (below), change the README's matching line.
+It reads the published DMG's size from GitHub, writes `apps/site/src/data/release.json` (`VERSION` and `DMG_SIZE`
+in `release.ts` come from it) and rewrites the README's links, labels and sizes. Commit both. If a release changes a
+claim on the landing page (below), change the README's matching line too.
 
 **Bring the landing page's claims up to date.** The home page makes specific promises; a release can make
 one of them stale or earn a new one. Read the new notes against:
@@ -414,10 +414,10 @@ pnpm -C apps/site run deploy   # the upload can drop on a weak connection: rerun
 ```
 
 Then verify live: `https://ardia.dev/release-notes/` contains the new headline, the home page links
-`Ardia-<version>.dmg`, that URL returns 200, and any claim you changed shows. Commit `release.ts`
+`Ardia-<version>.dmg`, that URL returns 200, and any claim you changed shows. Commit `release.json`, the README
 and the claim changes ("Site: download <version>", plus what changed) and push.
 
-The SEO data follows `release.ts` and the notes by itself, with no extra step; check that it did:
+The SEO data follows `release.json` and the notes by itself, with no extra step; check that it did:
 - The home page's JSON-LD `softwareVersion` is the new version.
 - `https://ardia.dev/release-notes/<version>/` exists (every notes file gets its own page, built from the
   `releaseNotes` collection), and its description reads well: it comes from the intro paragraph, or else the

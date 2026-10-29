@@ -58,8 +58,8 @@ every copy on Stable sees only stable items. A copy on Nightly allows `nightly` 
   same file. Both flows build on the published feed (`release.sh` fetches it and refuses to go on without it), and
   `appcast-merge.sh` puts the new item onto the feed as published at that moment, so a nightly that shipped while a
   stable was being tested isn't dropped. `generate_appcast` keeps 3 items per channel.
-- **Downloads.** Stable keeps its versioned link (`releases/latest/download/Ardia-<version>.dmg`, from
-  `apps/site/src/data/release.ts`). Nightly has one fixed link, `https://ardia.dev/nightly` (`infra/site/nginx.conf`),
+- **Downloads.** Stable links one tag's DMG (`releases/download/v<version>/Ardia-<version>.dmg`, from
+  `apps/site/src/data/release.json`), so the link never 404s while a newer release waits for the site. Nightly has one fixed link, `https://ardia.dev/nightly` (`infra/site/nginx.conf`),
   which redirects to the `nightly` prerelease's `Ardia-Nightly.dmg`; each nightly re-uploads that asset, so the site
   never redeploys for a nightly.
 - **Proof.** `.claude/skills/release/scripts/channel-test.sh dist/<stable>/export/Ardia.app` runs that build's own
@@ -185,8 +185,8 @@ stays up. That's GPL-3.0 §6(d) for the GPL parts (uBlock Origin today), and it'
    digest of the published DMG and pushes the tap (`PUBLISH_TAP=0` skips it).
 5. Deploy the site so `/release-notes` shows the new version (for a nightly too: the updated app opens its entry) (the updated app opens it on its first launch):
    `pnpm -C apps/site run deploy` builds `apps/site` with `SITE_URL=https://ardia.dev` and ships it
-   (`infra/site/hexclave.deploy.ts`). Also bump `VERSION` and `DMG_SIZE` in `apps/site/src/data/release.ts`
-   first so the download button points at the new DMG. The owner has authorized releases to go all the way
+   (`infra/site/hexclave.deploy.ts`). For a stable, run `.claude/skills/release/scripts/site-version.mjs <version>`
+   first so the download buttons and the README point at the new DMG. The owner has authorized releases to go all the way
    through, so an agent cutting a release deploys too; a site deploy outside a release needs the owner's OK.
 
 Before publishing, run the smoke test: `.claude/skills/release/scripts/smoke.sh <version> <previous> [--rc]` (the

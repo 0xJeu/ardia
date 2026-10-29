@@ -18,8 +18,9 @@ Pages without a custom domain).
 
 ## Updating
 
-- **A release:** bump `VERSION` and `DMG_SIZE` in `src/data/release.ts`. The download button links to
-  `releases/latest/download/Ardia-<version>.dmg`.
+- **A release:** `.claude/skills/release/scripts/site-version.mjs <version>` writes `src/data/release.json` (the
+  version and the DMG's size) from the published release. The download button links to
+  `releases/download/v<version>/Ardia-<version>.dmg`.
 - **Release notes:** `/release-notes` renders the repo's `docs/release-notes/<version>.md` (one file per version,
   `src/content.config.ts`), newest first, each at `/release-notes#<version>`. The app opens that anchor after it
   updates, so rebuild and redeploy the site when a release ships (`docs/releasing.md`).

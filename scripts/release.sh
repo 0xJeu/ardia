@@ -124,6 +124,8 @@ fi
 
 pbx="$macos/Ardia.xcodeproj/project.pbxproj"
 project_version="$(sed -n 's/.*MARKETING_VERSION = "\{0,1\}\([^";]*\)"\{0,1\};/\1/p' "$pbx" | sort -u)"
+min_macos="$(sed -n 's/.*MACOSX_DEPLOYMENT_TARGET = \([0-9]*\)\.0;/\1/p' "$pbx" | sort -u)"
+[[ "$min_macos" =~ ^[0-9]+$ ]] || die "the project's MACOSX_DEPLOYMENT_TARGET isn't one whole macOS version: '$min_macos'"
 project_build="$(sed -n 's/.*CURRENT_PROJECT_VERSION = \(.*\);/\1/p' "$pbx" | sort -u)"
 version_settings=()
 release_build="$project_build"
@@ -470,9 +472,9 @@ else
   updates_line="Earlier versions update automatically (Ardia › Check for Updates…). Every release's notes: $notes_page"
 fi
 if [ "$notarize" = 1 ]; then
-  install_line="Apple Silicon, macOS 14 or later. Signed with Developer ID and notarized by Apple: download, drag it to Applications, open it."
+  install_line="Apple Silicon, macOS $min_macos or later. Signed with Developer ID and notarized by Apple: download, drag it to Applications, open it."
 else
-  install_line="Apple Silicon, macOS 14 or later. Signed with Developer ID but not notarized: on first launch macOS refuses to open it. Click Done, then System Settings › Privacy & Security › Open Anyway. Or run \`xattr -dr com.apple.quarantine /Applications/Ardia.app\`."
+  install_line="Apple Silicon, macOS $min_macos or later. Signed with Developer ID but not notarized: on first launch macOS refuses to open it. Click Done, then System Settings › Privacy & Security › Open Anyway. Or run \`xattr -dr com.apple.quarantine /Applications/Ardia.app\`."
 fi
 case "$engine_release" in engine-*) engine_tag="$engine_release" ;; *) engine_tag="v$engine_release" ;; esac
 source_line="This build's source, with the engine's patches and build scripts: https://github.com/$repo/tree/v$version (LICENSE and NOTICE there cover the licenses)."
