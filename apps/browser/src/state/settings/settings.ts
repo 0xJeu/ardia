@@ -4,6 +4,7 @@ import {
   engineById,
   extensionEngineId,
   makeCustomEngine,
+  resolveInput,
   validateEngine,
   type CustomSearchEngine,
   type EngineInput,
@@ -11,6 +12,7 @@ import {
   type SearchEngine,
 } from "@ardia/core";
 import type { StateCreator } from "zustand";
+import { fromLegacyUrl } from "../../lib/legacy";
 import type { BrowserState } from "../browser/store";
 
 export const DEFAULT_PROFILE_ID = "default";
@@ -176,6 +178,8 @@ export function defaultSearchEngine(settings: Settings): SearchEngine {
 export function searchUrlPrefix(settings: Settings): string {
   return defaultSearchEngine(settings).url;
 }
+
+export const resolveTyped = (settings: Settings, input: string): string => resolveInput(fromLegacyUrl(input.trim()), searchUrlPrefix(settings));
 
 function validateCustomEngine(settings: Settings, input: EngineInput, ignoreId?: string): string | null {
   return validateEngine(input, searchEngines(settings), ignoreId);

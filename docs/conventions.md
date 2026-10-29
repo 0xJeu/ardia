@@ -45,7 +45,7 @@ lib/                    pure helpers: url, time, keys
   come from `components/ui`.
 - Components never import `platform/`. A platform value a component uses (a web view handle, a kill switch, the
   import module) reaches it as a re-export from its domain in `state/`: `state/tabs/webviewHandles.ts`,
-  `state/tabs/prewarm.ts`, `state/app/switches.ts`, `state/app/slowTimers.ts`, `state/app/nativeApiSkew.ts`,
+  `state/app/switches.ts`, `state/app/slowTimers.ts`, `state/app/nativeApiSkew.ts`,
   `state/import/importApi.ts`, and `isWebDemo` from `state/onboarding/demoSteps.ts`. Each re-export file imports
   only its platform module, so modules still load in the same order.
 - The one exception is the dev harness (`components/dev/devHarness.ts`): it hands the whole shell module to CDP

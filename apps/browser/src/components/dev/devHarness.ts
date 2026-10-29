@@ -85,8 +85,8 @@ export function startDevHarness() {
     get settingsNav(): typeof import("../../state/settings/settingsWindows").useSettingsNav {
       return require("../../state/settings/settingsWindows").useSettingsNav;
     },
-    get preload(): typeof import("../../platform/preload") {
-      return require("../../platform/preload");
+    get preload(): typeof import("../../state/tabs/prewarm") {
+      return require("../../state/tabs/prewarm");
     },
     get syncSheets(): typeof import("../settings/panes/SyncSheets") {
       return require("../settings/panes/SyncSheets");

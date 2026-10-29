@@ -1,7 +1,5 @@
 import { appUrlRoute } from "@ardia/core";
-import { useBrowser } from "../browser/store";
-import { setAppUrlOpener } from "../tabs/tabsSlice";
-import { openSettings, type SettingsPane } from "../settings/settingsWindows";
+import type { SettingsPane } from "../settings/settingsWindows";
 
 const PANES: Record<string, SettingsPane> = {
   general: "general",
@@ -27,20 +25,13 @@ const PANES: Record<string, SettingsPane> = {
   advanced: "advanced",
 };
 
-function settingsPaneOf(url: string): SettingsPane | "root" | null {
-  const route = appUrlRoute(url);
-  if (route?.kind !== "settings") return null;
-  return route.section === null ? "root" : (PANES[route.section.toLowerCase()] ?? null);
-}
+export type AppUrlAction = { kind: "newTab" } | { kind: "settings"; pane: SettingsPane | undefined };
 
-setAppUrlOpener((url, windowId) => {
+export function appUrlAction(url: string): AppUrlAction | null {
   const route = appUrlRoute(url);
-  if (route?.kind === "newTab") {
-    useBrowser.getState().newTab(windowId);
-    return true;
-  }
-  const pane = settingsPaneOf(url);
-  if (!pane) return false;
-  openSettings(pane === "root" ? undefined : pane);
-  return true;
-});
+  if (route?.kind === "newTab") return { kind: "newTab" };
+  if (route?.kind !== "settings") return null;
+  if (route.section === null) return { kind: "settings", pane: undefined };
+  const pane = PANES[route.section.toLowerCase()];
+  return pane ? { kind: "settings", pane } : null;
+}

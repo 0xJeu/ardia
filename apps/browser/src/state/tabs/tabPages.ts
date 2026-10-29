@@ -7,7 +7,8 @@ import { engineProfile } from "../browser/model";
 import { hasPage } from "./pageSession";
 import { tabEngine } from "../engines/engines";
 import type { Tab } from "../browser/types";
-import { issuedSeq, webviews } from "../../platform/webviews";
+import { webviews } from "../../platform/webviews";
+import { issuedSeq } from "./earlyNavigate";
 
 export const wantsPage = (t: Tab | undefined): t is Tab => !!t && hasPage(t) && !isInternalTab(t);
 

@@ -1,29 +1,21 @@
-import { resolveInput } from "@ardia/core";
 import type { StateCreator } from "zustand";
-import { fromLegacyUrl } from "../../lib/legacy";
-import { startNavigation } from "../../platform/earlyNavigate";
+import { startNavigation } from "./earlyNavigate";
 import type { BrowserState } from "../browser/store";
 import { syncGroupOrder } from "../groups/groups";
 import { activeTabId, inPinnedContainer, merge, navigationTo, pinSection, snapshotTab, viewTabIds } from "../browser/model";
 import { forgetOpeners, nextToActive, switchKeepsOpeners } from "./openers";
 import { groupWithOpener, onUrlChange } from "../pins/organize";
 import { stepDrop } from "../drag/drops";
-import { searchUrlPrefix } from "../settings/settings";
+import { resolveTyped } from "../settings/settings";
+import { openSettings } from "../settings/settingsWindows";
+import { appUrlAction } from "../pages/appUrls";
+import { handOffPinPage } from "../pins/pinHandoff";
 import { mainWindowFor } from "../windows/small";
 import { holderOf, swapPinPage } from "../pins/pinShare";
 import { engineForUrl, tabEngine, typedNavigationEngine } from "../engines/engines";
 import type { ClosedTab, Tab, TabLive } from "../browser/types";
 import { activated, apply, closingTabs, withNewTab, type CloseOptions, type NewTabOptions } from "./tabs";
 
-let pinHandoff: (tabId: string, commit: () => void) => void = (_, commit) => commit();
-export const setPinHandoff = (handoff: typeof pinHandoff) => {
-  pinHandoff = handoff;
-};
-
-let openOutsideTab: (url: string, windowId: string) => boolean = () => false;
-export const setAppUrlOpener = (open: typeof openOutsideTab) => {
-  openOutsideTab = open;
-};
 
 export type TabsSlice = {
   tabs: Record<string, Tab>;
@@ -55,6 +47,14 @@ function tabSection(s: BrowserState, id: string): string[] {
   return w.tabIds.filter((t) => s.tabs[t]?.profileId === tab.profileId && pinSection(s.tabs[t]) === pinSection(tab));
 }
 
+function openOutsideTab(s: BrowserState, url: string, windowId: string): boolean {
+  const action = appUrlAction(url);
+  if (!action) return false;
+  if (action.kind === "newTab") s.newTab(windowId);
+  else openSettings(action.pane);
+  return true;
+}
+
 export const createTabsSlice: StateCreator<BrowserState, [], [], TabsSlice> = (set, get) => ({
   tabs: {},
   live: {},
@@ -71,7 +71,7 @@ export const createTabsSlice: StateCreator<BrowserState, [], [], TabsSlice> = (s
       }
       return get().newTab(main, { ...options, profileId, index: undefined });
     }
-    if (options?.url && !options.adoptId && openOutsideTab(resolveInput(fromLegacyUrl(options.url.trim()), searchUrlPrefix(get().settings)), windowId)) return "";
+    if (options?.url && !options.adoptId && openOutsideTab(get(), resolveTyped(get().settings, options.url), windowId)) return "";
     const beside = options?.newTabCommand && !options.openerId ? nextToActive(get(), windowId, options.profileId) : undefined;
     let [next, id] = withNewTab(get(), windowId, beside ? { ...options, ...beside } : options);
     const typed = beside && next.tabs[id]?.navigation;
@@ -96,7 +96,7 @@ export const createTabsSlice: StateCreator<BrowserState, [], [], TabsSlice> = (s
     const s = get();
     const tab = s.tabs[id];
     if (!tab) return;
-    if (!tab.navigation && !tab.adoptId && holderOf(s, id)) return pinHandoff(id, () => get().handOffPin(id));
+    if (!tab.navigation && !tab.adoptId && holderOf(s, id)) return handOffPinPage(id, () => get().handOffPin(id));
     const shown = activeTabId(s, tab.windowId);
     let next = apply(s, activated(s, id));
     if (shown && shown !== id && !switchKeepsOpeners(s, shown, id)) next = forgetOpeners(next, tab.windowId);
@@ -140,10 +140,10 @@ export const createTabsSlice: StateCreator<BrowserState, [], [], TabsSlice> = (s
       return;
     }
     const s = get();
-    const url = resolveInput(fromLegacyUrl(input.trim()), searchUrlPrefix(s.settings));
+    const url = resolveTyped(s.settings, input);
     const tab = s.tabs[id];
     if (!url || !tab) return;
-    if (openOutsideTab(url, tab.windowId)) {
+    if (openOutsideTab(s, url, tab.windowId)) {
       if (get().windowUi[tab.windowId]?.panel.open) get().closePanel(tab.windowId);
       return;
     }

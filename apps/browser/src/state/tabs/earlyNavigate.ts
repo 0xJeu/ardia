@@ -1,8 +1,13 @@
-import { noteIssued, webviewMount, webviews } from "./webviews";
+import { webviewMount, webviews } from "../../platform/webviews";
 
 type Navigation = { url: string; seq: number; userInitiated?: boolean };
 
 const started = new Map<string, { seq: number; mount: object }>();
+const issued = new Map<string, number>();
+
+export const noteIssued = (tabId: string, seq: number) => void issued.set(tabId, seq);
+
+export const issuedSeq = (tabId: string) => issued.get(tabId);
 
 export function startNavigation(tabId: string, navigation: Navigation) {
   const view = webviews.get(tabId);
