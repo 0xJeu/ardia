@@ -1,6 +1,7 @@
 import { createElement } from "react";
 import { shell } from "../../platform/devShell";
 import { readDocument, writeDocument } from "../../platform/documents";
+import { DEV_EVAL_RESULT, watchDevEval } from "../../lib/devEval";
 import { omniboxDrivers } from "../omnibox/devDriver";
 import { pagesDrivers } from "../pages/devDrivers";
 import { usePages } from "../../state/tabs/pageState";
@@ -120,20 +121,14 @@ export function startDevHarness() {
     },
   };
   (globalThis as { ac?: typeof ac }).ac = ac;
-  const scriptId = (source: string | null) => source?.match(/^\/\/ *(\S+)/)?.[1];
-  let lastId = scriptId(readDocument("dev-eval.js")) ?? "";
-  setInterval(function pollDevEval() {
-    const source = readDocument("dev-eval.js");
-    const id = scriptId(source);
-    if (!source || !id || id === lastId) return;
-    lastId = id;
+  watchDevEval(readDocument, __DEV__ ? 50 : 250, (id, source) => {
     const evalLog = ((globalThis as { __devEvalLog?: string[] }).__devEvalLog ??= []);
     const took = Date.now();
     evalLog.push(`${id} taken ${took}`);
     if (evalLog.length > 12) evalLog.shift();
     const done = (body: object) => {
       evalLog.push(`${id} settled +${Date.now() - took} ms`);
-      writeDocument("dev-eval-result.json", JSON.stringify({ id, ...body }));
+      writeDocument(DEV_EVAL_RESULT, JSON.stringify({ id, ...body }));
     };
     try {
       const fn = new Function("ac", source) as (n: typeof ac) => unknown;
@@ -144,5 +139,5 @@ export function startDevHarness() {
     } catch (error) {
       done({ error: String(error) });
     }
-  }, __DEV__ ? 50 : 250);
+  });
 }
