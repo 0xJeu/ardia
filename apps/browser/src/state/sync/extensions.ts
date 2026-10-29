@@ -1,3 +1,4 @@
+import { useBrowser } from "../browser/store";
 import { applyExtensionsSync, extensionsSyncState, onExtensionsSync } from "../../platform/extensions";
 import { readDocument, writeDocument } from "../../platform/documents";
 import { extensionsAdapter, type ExtensionChange, type ExtensionIntent, type ExtensionsAdapter, type LocalExtensions } from "../../platform/sync";
@@ -46,24 +47,9 @@ async function readLocal(profile: string): Promise<LocalExtensions | null> {
   }
 }
 
-let available: boolean | null = null;
+const changeListeners = new Set<(profile: string) => void>();
 
-export const extensionSyncAvailable = () => available === true;
-
-export async function probeExtensionSync(profile: string): Promise<boolean> {
-  if (available !== null) return available;
-  try {
-    await stateOf(profile);
-    available = true;
-  } catch {}
-  return available === true;
-}
-
-function refreshList(profile: string) {
-  try {
-    (require("../extensions/actions") as typeof import("../extensions/actions")).refreshExtensionsAfterChange(profile);
-  } catch {}
-}
+export const onSyncedExtensionChange = (listener: (profile: string) => void) => void changeListeners.add(listener);
 
 async function change(profile: string, c: ExtensionChange): Promise<boolean> {
   const args = c.kind === "cancel" ? { id: c.id, record: { removed: true } } : { id: c.id, record: c.record, ...(c.approval ? { approval: c.approval } : {}) };
@@ -74,7 +60,7 @@ async function change(profile: string, c: ExtensionChange): Promise<boolean> {
     console.warn(`[sync] extension ${c.kind} ${c.id} failed`, error);
     return false;
   } finally {
-    refreshList(profile);
+    for (const listener of changeListeners) listener(profile);
   }
 }
 

@@ -22,6 +22,7 @@ import { usePages } from "../tabs/pageState";
 import { refreshActionStates } from "./actionStates";
 import { startExtensionSearchEngines } from "./searchEngines";
 import { watchExtensionInstallFailures } from "./crxDrop";
+import { onSyncedExtensionChange } from "../sync/extensions";
 import * as state from "./actions";
 import {
   activateExtension,
@@ -43,6 +44,7 @@ export function startExtensionsBridge() {
   onExtensionTabsRequest(openRequestedTab);
   startExtensionSearchEngines();
   onExtensionsChanged(({ profile }) => void refreshExtensions(profile));
+  onSyncedExtensionChange((profile) => void refreshExtensionsAfterChange(profile));
 
   const loadProfiles = (s: BrowserState) => {
     for (const id of s.windowOrder) {
