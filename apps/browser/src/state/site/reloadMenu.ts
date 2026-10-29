@@ -45,7 +45,7 @@ export async function clearSiteDataAfterConfirm(tab: Pick<Tab, "id" | "windowId"
     windowId: tab.windowId,
   });
   if (!confirmed) return null;
-  const profile = engineProfile(tab.profileId);
+  const profile = engineProfile(useBrowser.getState(), tab.profileId);
   const result = await (webkit ? clearWebKitSiteData(profile, origin) : clearSiteData(profile, origin)).catch(() => null);
   const now = currentTab(tab.id);
   if (now && now.profileId === tab.profileId && siteOrigin(now.url) === origin) void webviews.get(tab.id)?.reload();

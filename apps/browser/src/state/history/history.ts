@@ -28,7 +28,7 @@ function withoutVisitsSince(entry: HistoryEntry, since: number): HistoryEntry | 
 
 const failed = (what: string) => (error: unknown) => console.warn(`[history] ${what}`, error);
 
-export const createHistorySlice: StateCreator<BrowserState, [], [], HistorySlice> = (set) => ({
+export const createHistorySlice: StateCreator<BrowserState, [], [], HistorySlice> = (set, get) => ({
   history: {},
   historyReady: {},
   historyFloor: {},
@@ -36,7 +36,7 @@ export const createHistorySlice: StateCreator<BrowserState, [], [], HistorySlice
   removeHistory(profileId, urls) {
     if (!urls.length || isIncognitoProfile(profileId)) return;
     set((s) => ({ history: { ...s.history, [profileId]: (s.history[profileId] ?? []).filter((h) => !urls.includes(h.url)) } }));
-    void deleteHistoryUrls(engineProfile(profileId), urls).catch(failed("delete"));
+    void deleteHistoryUrls(engineProfile(get(), profileId), urls).catch(failed("delete"));
   },
 
   importHistory(profileId, entries) {
@@ -54,7 +54,7 @@ export const createHistorySlice: StateCreator<BrowserState, [], [], HistorySlice
       const merged = [...byUrl.values()].sort((a, b) => b.lastVisit - a.lastVisit).slice(0, MAX_HISTORY);
       return { history: { ...s.history, [profileId]: merged } };
     });
-    void importHistoryRows(engineProfile(profileId), rows).catch(failed("import"));
+    void importHistoryRows(engineProfile(get(), profileId), rows).catch(failed("import"));
     return added;
   },
 

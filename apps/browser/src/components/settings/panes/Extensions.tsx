@@ -1,3 +1,4 @@
+import { useBrowser } from "../../../state/browser/store";
 import {
   reloadExtension,
   addFromWebStore,
@@ -42,7 +43,7 @@ export function ExtensionsPane({ profileId: chosen, detail }: { profileId: strin
   const theme = useTheme();
   const profiles = useProfiles();
   const [profileId] = useState(() => extensionsProfileId(chosen));
-  const profile = engineProfile(profileId);
+  const profile = engineProfile(useBrowser.getState(), profileId);
   const list = useExtensionList(profile);
   const [link, setLink] = useState("");
   const [loaded] = useResource(extensionList, profile);

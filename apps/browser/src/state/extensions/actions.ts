@@ -83,7 +83,7 @@ export function addFromWebStore(windowId: string, urlOrId: string, profile = ext
   const s = useBrowser.getState();
   const target = s.windows[windowId] ? windowId : s.ui.focusOrder.find((w) => s.windows[w] && extensionProfile(s, w) === profile && !s.windows[w]!.incognito);
   if (target) s.newTab(target, { url });
-  else openWindow({ profileId: s.profileOrder.find((p) => engineProfile(p) === profile), url });
+  else openWindow({ profileId: s.profileOrder.find((p) => engineProfile(s, p) === profile), url });
 }
 
 export async function loadUnpacked(windowId: string, profile = extensionProfile(useBrowser.getState(), windowId)): Promise<boolean> {

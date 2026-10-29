@@ -41,7 +41,7 @@ test("an empty lookup that started before an import doesn't wipe the imported ic
     await new Promise((resolve) => setTimeout(resolve, 40));
     assert.equal(resolveFavicon(page, null, "default")?.uri, "data:image/png;base64,AAAA");
     await waitFor(() => globalThis.storedFavicons.length === 1);
-    assert.deepEqual(globalThis.storedFavicons[0], [engineProfile("default"), page, `${page}favicon.png`, "AAAA"]);
+    assert.deepEqual(globalThis.storedFavicons[0], [engineProfile(useBrowser.getState(), "default"), page, `${page}favicon.png`, "AAAA"]);
   } finally {
     row.unmount();
     delete globalThis.faviconsForTest;

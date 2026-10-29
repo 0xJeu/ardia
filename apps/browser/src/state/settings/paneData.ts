@@ -1,3 +1,4 @@
+import { useBrowser } from "../browser/store";
 import {
   engineInfo,
   listComponents,
@@ -59,10 +60,10 @@ export const widevine = resource("widevine", () =>
   ),
 );
 
-const defaultProfile = () => engineProfile(currentSettings().defaultProfileId);
+const defaultProfile = () => engineProfile(useBrowser.getState(), currentSettings().defaultProfileId);
 
 export function paneNeeds(pane: SettingsPane, profileId: string | null): Needed[] {
-  const profile = profileId ? engineProfile(profileId) : defaultProfile();
+  const profile = profileId ? engineProfile(useBrowser.getState(), profileId) : defaultProfile();
   switch (pane) {
     case "general":
       return [need(loginItem), need(defaultBrowser), need(updater), need(downloadSettings, profile)];
@@ -77,7 +78,7 @@ export function paneNeeds(pane: SettingsPane, profileId: string | null): Needed[
     case "autofill":
       return [need(addresses, profile), need(cards, profile), need(autofillEnabled, profile)];
     case "extensions":
-      return [need(extensionList, engineProfile(extensionsProfileId(profileId)))];
+      return [need(extensionList, engineProfile(useBrowser.getState(), extensionsProfileId(profileId)))];
     case "shortcuts":
       return [need(shortcutItems)];
     case "advanced":

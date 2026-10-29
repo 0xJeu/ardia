@@ -1,3 +1,4 @@
+import { useBrowser } from "../../../state/browser/store";
 import {
   clearSiteData,
   getSiteSettings,
@@ -173,7 +174,7 @@ function ZoomLevels() {
   const profileId = useSettings((s) => s.defaultProfileId);
   const profiles = useProfiles();
   const [selected, setSelected] = useState(profileId);
-  const [loaded, reload] = useResource(zoomLevels, engineProfile(selected));
+  const [loaded, reload] = useResource(zoomLevels, engineProfile(useBrowser.getState(), selected));
   const levels = loaded ?? {};
   const load = () => void reload();
   const hosts = Object.keys(levels).sort();
@@ -189,7 +190,7 @@ function ZoomLevels() {
       <Group>
         {hosts.map((host) => (
           <Row key={host} icon={<Favicon url={`https://${host}`} />} title={host} description={`${Math.round(levels[host]! * 100)}%`}>
-            <Button title="Reset" onPress={() => void setZoom(engineProfile(selected), host, 1).then(load)} />
+            <Button title="Reset" onPress={() => void setZoom(engineProfile(useBrowser.getState(), selected), host, 1).then(load)} />
           </Row>
         ))}
       </Group>
@@ -227,7 +228,7 @@ const VALUE_OPTIONS: { value: SiteSettingValue; title: string }[] = [
 function SitePermissions() {
   const profiles = useProfiles();
   const [profileId, setProfileId] = useState(() => currentSettings().defaultProfileId);
-  const [loaded, reload] = useResource(siteOrigins, engineProfile(profileId));
+  const [loaded, reload] = useResource(siteOrigins, engineProfile(useBrowser.getState(), profileId));
   const origins = loaded ?? null;
   const refresh = () => void reload();
 
@@ -265,7 +266,7 @@ function SitePermissions() {
 function AppLinks() {
   const profiles = useProfiles();
   const [profileId, setProfileId] = useState(() => currentSettings().defaultProfileId);
-  const [loaded, reload] = useResource(appLinks, engineProfile(profileId));
+  const [loaded, reload] = useResource(appLinks, engineProfile(useBrowser.getState(), profileId));
   const allowed = loaded ?? null;
   const refresh = () => void reload();
 
@@ -295,7 +296,7 @@ function AppLinks() {
             >
               <Button
                 title="Remove"
-                onPress={() => void removeExternalAppAllowance(engineProfile(profileId), a.origin, a.scheme).then(refresh)}
+                onPress={() => void removeExternalAppAllowance(engineProfile(useBrowser.getState(), profileId), a.origin, a.scheme).then(refresh)}
               />
             </Row>
           ))
@@ -307,7 +308,7 @@ function AppLinks() {
 
 function SiteSheet({ profileId, origin, onChanged }: { profileId: string; origin: string; onChanged: () => void }) {
   const theme = useTheme();
-  const profile = engineProfile(profileId);
+  const profile = engineProfile(useBrowser.getState(), profileId);
   const [settings, setSettings] = useState<SiteSettings | null>(null);
   const [status, setStatus] = useState("");
   const load = () => void getSiteSettings(profile, origin).catch((): SiteSettings => ({}) as SiteSettings).then(setSettings).catch(() => {});

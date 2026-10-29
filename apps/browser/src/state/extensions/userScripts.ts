@@ -28,7 +28,7 @@ export function scriptsTargets(s: Pick<BrowserState, "profileOrder" | "profiles"
     const seen = (taken.get(base) ?? 0) + 1;
     taken.set(base, seen);
     const name = seen === 1 ? base : `${base} (${seen})`;
-    const engine = engineProfile(id);
+    const engine = engineProfile(s, id);
     targets.set(engine, [...(targets.get(engine) ?? []), name]);
   }
   return targets;

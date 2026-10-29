@@ -1,3 +1,4 @@
+import { useBrowser } from "../../state/browser/store";
 import { WebView } from "../ui";
 import { type OpenWindowRequest, openFromPage } from "../../state/tabs/openFromPage";
 import type { PageEngine } from "../../state/engines/engines";
@@ -98,7 +99,7 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
     () => () => {
       const t = tab();
       const sameEngine = currentTabEngine(tabId) === engine;
-      if (wantsPage(t) && sameEngine && engineProfile(t.profileId) === engineProfile(mountedProfile.current) && !isQuitting()) handOff(tabId, engineProfile(t.profileId), engine);
+      if (wantsPage(t) && sameEngine && engineProfile(useBrowser.getState(), t.profileId) === engineProfile(useBrowser.getState(), mountedProfile.current) && !isQuitting()) handOff(tabId, engineProfile(useBrowser.getState(), t.profileId), engine);
       else setPageProgress(tabId, 0);
     },
     [],
@@ -117,7 +118,7 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
       engine={engine}
       style={StyleSheet.absoluteFill}
       url={navigation?.url ?? (adoptId ? tab()?.url : undefined)}
-      profile={engineProfile(profileId)}
+      profile={engineProfile(useBrowser.getState(), profileId)}
       adoptId={adoptId}
       tabId={tabId}
       temporary={peekOf !== undefined}
@@ -217,7 +218,7 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
       onPopupBlocked={(popup) => {
         const first = !pageOf(tabId).popups.length;
         patchPage(tabId, { popups: [...pageOf(tabId).popups, popup] });
-        if (first) void shouldPromptForPopups(engineProfile(profileId), popup.origin).then((ask) => ask && setPopover(tabId, "popups"));
+        if (first) void shouldPromptForPopups(engineProfile(useBrowser.getState(), profileId), popup.origin).then((ask) => ask && setPopover(tabId, "popups"));
       }}
       onPasswordPrompt={(prompt) => showPasswordPrompt(tabId, prompt)}
       onAutofillPrompt={(prompt, id) => showAutofillPrompt(tabId, prompt, id)}

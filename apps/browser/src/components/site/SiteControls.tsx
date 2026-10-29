@@ -1,3 +1,4 @@
+import { useBrowser } from "../../state/browser/store";
 import {
   getContentBlocker,
   getSiteSettings,
@@ -102,7 +103,7 @@ function SiteControlsPanel({
   const url = tab?.url ?? "";
   const origin = siteOrigin(url);
   const host = origin ? new URL(origin).hostname : "";
-  const profile = engineProfile(tab?.profileId ?? "");
+  const profile = engineProfile(useBrowser.getState(), tab?.profileId ?? "");
   const close = () => setPopover(tabId, null);
   const video = useMedia((m) => !!m.sessions[tabId]?.hasVideo || !!m.pipOpen[tabId]);
   const [pip, togglePip] = usePictureInPicture(tabId);

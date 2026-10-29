@@ -7,7 +7,7 @@ import { showToast } from "../app/toasts";
 
 const fileName = (path: string) => path.split("/").pop() ?? path;
 
-export const exportBookmarks = (profileId: string): Promise<string | null> => exportBookmarksHtml(engineProfile(profileId));
+export const exportBookmarks = (profileId: string): Promise<string | null> => exportBookmarksHtml(engineProfile(useBrowser.getState(), profileId));
 
 export async function exportBookmarksFromWindow(windowId: string | null | undefined) {
   const target = resolveWindowId(useBrowser.getState(), windowId) ?? null;

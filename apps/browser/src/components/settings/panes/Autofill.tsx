@@ -1,3 +1,4 @@
+import { useBrowser } from "../../../state/browser/store";
 import {
   cardNetworkName,
   deleteAddress,
@@ -28,7 +29,7 @@ export function AutofillPane({ profileId: initial }: { profileId?: string | null
   const theme = useTheme();
   const profiles = useProfiles();
   const [profileId, setProfileId] = useState(() => initial ?? currentSettings().defaultProfileId);
-  const profile = engineProfile(profileId);
+  const profile = engineProfile(useBrowser.getState(), profileId);
   const [addresses, reloadAddresses] = useResource(addressList, profile);
   const [cards, reloadCards] = useResource(cardList, profile);
   const [enabled] = useResource(autofillEnabled, profile);

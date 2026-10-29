@@ -71,7 +71,7 @@ function publishUi(patch: Partial<SyncUi> = {}) {
 function watchExtensions() {
   if (!doc.enabled || !doc.types.extensions) return;
   const s = useBrowser.getState();
-  const profiles = [...new Set(Object.entries(doc.profiles).filter(([id, l]) => l.enabled && s.profiles[id] && !s.profiles[id]!.dataId).map(([id]) => engineProfile(id)))];
+  const profiles = [...new Set(Object.entries(doc.profiles).filter(([id, l]) => l.enabled && s.profiles[id] && !s.profiles[id]!.dataId).map(([id]) => engineProfile(s, id)))];
   if (profiles.length) watchExtensionIntents(profiles);
 }
 

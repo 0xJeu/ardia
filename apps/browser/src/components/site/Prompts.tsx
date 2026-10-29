@@ -1,3 +1,4 @@
+import { useBrowser } from "../../state/browser/store";
 import { getSiteSettings, resolveExternalApp, setSiteSetting } from "../../state/site/siteSettings";
 import {
   type AutofillPrompt as ChromeAutofillPrompt,
@@ -89,7 +90,7 @@ export function BlockedPopupsPrompt({ tabId, right, left, top }: { tabId: string
     patchPage(tabId, { popups: [] });
     close();
   };
-  const profile = () => engineProfile(currentTab(tabId)?.profileId ?? "");
+  const profile = () => engineProfile(useBrowser.getState(), currentTab(tabId)?.profileId ?? "");
   return (
     <Popover width={BLOCKED_POPUPS_WIDTH} top={top} right={right} left={left} onDismiss={close}>
       <View style={{ paddingBottom: PANEL.listPadding }}>

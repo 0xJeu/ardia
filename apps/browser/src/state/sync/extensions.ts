@@ -65,7 +65,7 @@ async function change(profile: string, c: ExtensionChange): Promise<boolean> {
 }
 
 export function extensionsAdapterFor(profileId: string): ExtensionsAdapter {
-  const profile = () => engineProfile(profileId);
+  const profile = () => engineProfile(useBrowser.getState(), profileId);
   return extensionsAdapter({
     read: () => readLocal(profile()),
     change: (c) => change(profile(), c),

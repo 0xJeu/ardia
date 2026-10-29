@@ -21,22 +21,17 @@ export const incognitoOriginal = (profileId: string) => {
   return at < 0 ? DEFAULT_PROFILE_ID : profileId.slice(at + 1);
 };
 
-let sharedDataIds: Record<string, string> = {};
-export const setSharedDataIds = (map: Record<string, string>) => {
-  sharedDataIds = map;
-};
-
-export const engineProfile = (profileId: string): string => {
+export const engineProfile = (s: Pick<BrowserState, "profiles">, profileId: string): string => {
   if (isIncognitoProfile(profileId)) {
     const at = profileId.indexOf("@");
-    return `${at < 0 ? profileId : profileId.slice(0, at)}@${engineProfile(incognitoOriginal(profileId))}`;
+    return `${at < 0 ? profileId : profileId.slice(0, at)}@${engineProfile(s, incognitoOriginal(profileId))}`;
   }
-  const id = sharedDataIds[profileId] ?? profileId;
+  const id = s.profiles[profileId]?.dataId ?? profileId;
   return id === DEFAULT_PROFILE_ID ? "" : id;
 };
 
-export const privateSession = (profileId: string): string | null =>
-  isIncognitoProfile(profileId) ? engineProfile(incognitoOriginal(profileId)) : null;
+export const privateSession = (s: Pick<BrowserState, "profiles">, profileId: string): string | null =>
+  isIncognitoProfile(profileId) ? engineProfile(s, incognitoOriginal(profileId)) : null;
 
 const INCOGNITO_PROFILE: Profile = { id: "incognito", name: "Incognito", color: "neutral", icon: null, createdAt: 0 };
 

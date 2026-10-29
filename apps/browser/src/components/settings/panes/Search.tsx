@@ -1,3 +1,4 @@
+import { useBrowser } from "../../../state/browser/store";
 import { engineHost, type SearchEngine } from "@ardia/core";
 import { Symbol, Button, font, Sheet, TextField, Toggle, weight } from "../../ui";
 import { useState } from "react";
@@ -15,7 +16,7 @@ import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/s
 import { openSettings } from "../../../state/settings/settingsWindows";
 
 function manageExtensionsOf(profile: string) {
-  const profileId = currentProfileOrder().find((id) => engineProfile(id) === profile);
+  const profileId = currentProfileOrder().find((id) => engineProfile(useBrowser.getState(), id) === profile);
   openSettings("extensions", extensionsProfileId(profileId));
 }
 

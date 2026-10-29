@@ -1,3 +1,4 @@
+import { useBrowser } from "../../../state/browser/store";
 import { setDownloadSettings, type DownloadSettings } from "../../../state/downloads/actions";
 import {
   checkForUpdates,
@@ -125,9 +126,9 @@ const homeRelative = (path: string) => path.replace(/^\/Users\/[^/]+(?=\/|$)/, "
 function DownloadsSection() {
   const profiles = useProfiles();
   const [profileId, setProfileId] = useState(() => currentSettings().defaultProfileId);
-  const profile = engineProfile(profileId);
+  const profile = engineProfile(useBrowser.getState(), profileId);
   const [current] = useResource(downloadSettings, profile);
-  const others = [...new Set(profiles.map((p) => engineProfile(p.id)))].filter((p) => p !== profile);
+  const others = [...new Set(profiles.map((p) => engineProfile(useBrowser.getState(), p.id)))].filter((p) => p !== profile);
   const apply = (patch: Partial<Pick<DownloadSettings, "folder" | "askWhereToSave">>, targets = [profile]) =>
     void Promise.all(targets.map((p) => setDownloadSettings(patch, p).then((next) => store(downloadSettings, [p], next), () => {})));
   const change = async () => {

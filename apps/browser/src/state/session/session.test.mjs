@@ -79,9 +79,9 @@ test("profiles sharing data still share it after a save and reload", () => {
   S().importHistory(b, [{ url: "https://a.com/", title: "A", visits: 1, lastVisit: Date.now() }]);
   const saved = JSON.parse(JSON.stringify({ profiles: S().profiles, profileOrder: S().profileOrder, history: S().history, bookmarks: S().bookmarks }));
   reset();
-  assert.equal(model.engineProfile(b), b, "registry follows the loaded profiles");
+  assert.equal(model.engineProfile(S(), b), b, "registry follows the loaded profiles");
   S().hydrate(saved);
-  assert.equal(model.engineProfile(b), a);
+  assert.equal(model.engineProfile(S(), b), a);
   assert.equal(S().history[a], S().history[b]);
   assert.deepEqual(S().bookmarks.roots[a], S().bookmarks.roots[b]);
 });

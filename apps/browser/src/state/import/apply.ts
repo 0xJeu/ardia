@@ -106,7 +106,7 @@ async function importPasswords(profileId: string, credentials: Credential[]): Pr
   for (const c of credentials) {
     const origin = /^([a-z][a-z0-9+.-]*:\/\/[^/?#]+)/i.exec(c.realm?.startsWith("http") ? c.realm : c.url)?.[1];
     if (!origin || !c.password) continue;
-    if (await savePassword(engineProfile(profileId), origin, c.username, c.password).catch(orWarn(false))) saved++;
+    if (await savePassword(engineProfile(useBrowser.getState(), profileId), origin, c.username, c.password).catch(orWarn(false))) saved++;
   }
   return saved;
 }
@@ -125,7 +125,7 @@ export async function importNative(
     return none;
   }
   try {
-    const w = await api.writeImported(token, engineProfile(profileId), kinds);
+    const w = await api.writeImported(token, engineProfile(useBrowser.getState(), profileId), kinds);
     if (w.cookiesFailed) onFailed?.("cookies");
     if (w.autofillFailed) onFailed?.("autofill");
     return { cookies: w.cookies, addresses: w.addresses, cards: w.cards };

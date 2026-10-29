@@ -1,7 +1,7 @@
 import type { StateCreator } from "zustand";
 import type { BrowserState } from "../browser/store";
 import { bookmarkRoots, ensureRoots, removeBookmarkTree } from "../bookmarks/bookmarks";
-import { newId, setSharedDataIds, viewTabIds, without } from "../browser/model";
+import { engineProfile, newId, viewTabIds, without } from "../browser/model";
 import { DEFAULT_PROFILE_ID } from "../settings/settings";
 import { activated, apply, removeTabs, withNewTab } from "../tabs/tabs";
 import type { Profile, ProfileColor } from "../browser/types";
@@ -28,7 +28,6 @@ export const unusedProfileColor = (profiles: Record<string, Profile>): ProfileCo
   COLORS.find((c) => !Object.values(profiles).some((p) => p.color === c)) ?? "blue";
 
 const dataIdOf = (profile: Profile) => profile.dataId ?? profile.id;
-export const engineIdOf = (profile: Profile) => (dataIdOf(profile) === DEFAULT_PROFILE_ID ? "" : dataIdOf(profile));
 
 export function dataGroups(s: Pick<BrowserState, "profiles" | "profileOrder">): { dataId: string; profileIds: string[] }[] {
   const groups = new Map<string, string[]>();
@@ -48,9 +47,6 @@ export function sharingProfiles(s: Pick<BrowserState, "profiles" | "profileOrder
 }
 
 function syncSharedData(s: BrowserState, prev: BrowserState): Partial<BrowserState> | null {
-  if (s.profiles !== prev.profiles) {
-    setSharedDataIds(Object.fromEntries(Object.values(s.profiles).filter((p) => p.dataId).map((p) => [p.id, p.dataId!])));
-  }
   if (s.profiles === prev.profiles && s.history === prev.history && s.bookmarks.roots === prev.bookmarks.roots) return null;
   let history = s.history;
   let roots = s.bookmarks.roots;
@@ -91,11 +87,11 @@ export const createProfilesSlice: StateCreator<BrowserState, [], [], ProfilesSli
       let bookmarks = s.bookmarks;
       let history = s.history;
       if (source) {
-        const [withRoots, roots] = ensureRoots(bookmarks, source.id);
+        const [withRoots, roots] = ensureRoots({ profiles: s.profiles, bookmarks }, source.id);
         bookmarks = { ...withRoots, roots: { ...withRoots.roots, [profile.id]: roots } };
         if (s.history[source.id]) history = { ...history, [profile.id]: s.history[source.id]! };
       } else {
-        bookmarks = ensureRoots(bookmarks, profile.id)[0];
+        bookmarks = ensureRoots({ profiles: s.profiles, bookmarks }, profile.id)[0];
       }
       set({ profiles: { ...s.profiles, [profile.id]: profile }, profileOrder: [...s.profileOrder, profile.id], bookmarks, history });
       return profile.id;
@@ -121,8 +117,8 @@ export const createProfilesSlice: StateCreator<BrowserState, [], [], ProfilesSli
         neverTranslateSites: without(s.settings.neverTranslateSites ?? {}, [id]),
       };
       const shared = sharingProfiles(s, id).length > 0;
-      const engine = engineIdOf(s.profiles[id]!);
-      const orphaned = profileOrder.some((p) => engineIdOf(s.profiles[p]!) === engine) || s.orphanedProfileData.includes(engine)
+      const engine = engineProfile(s, id);
+      const orphaned = profileOrder.some((p) => engineProfile(s, p) === engine) || s.orphanedProfileData.includes(engine)
         ? s.orphanedProfileData
         : [...s.orphanedProfileData, engine];
 

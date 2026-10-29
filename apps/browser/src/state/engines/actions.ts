@@ -193,5 +193,5 @@ export function noteWebKitPage(tabId: string, page: WebKitPage) {
   if (!t) return;
   watchClosedTabs();
   visitedTabs.add(tabId);
-  visits.note(tabId, isIncognitoProfile(t.profileId) ? null : engineProfile(t.profileId), page);
+  visits.note(tabId, isIncognitoProfile(t.profileId) ? null : engineProfile(useBrowser.getState(), t.profileId), page);
 }

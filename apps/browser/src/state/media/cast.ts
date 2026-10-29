@@ -17,7 +17,7 @@ if (__DEV__) (globalThis as { acCast?: unknown }).acCast = { useCast };
 
 function castProfile(s: BrowserState, windowId: string): string {
   const w = s.windows[windowId];
-  return !w ? "" : engineProfile(w.profileId);
+  return !w ? "" : engineProfile(s, w.profileId);
 }
 
 let started = false;

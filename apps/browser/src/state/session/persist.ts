@@ -43,7 +43,7 @@ const DOCS: Doc[] = [
     sources: (s) => [s.downloads],
     json: serialized(DOWNLOADS_VERSION, (s) => ({
       downloads: s.downloads
-        .filter((d) => downloadSession(d) === null)
+        .filter((d) => downloadSession(s, d) === null)
         .map((d) => (d.state === "downloading" ? { ...d, state: "failed" } : d)),
     })),
   },
@@ -142,7 +142,8 @@ export function loadSession(): HydrateData | null {
   const session = read<SessionV4>("session.json", SESSION_VERSION, SESSION_MIGRATIONS);
   if (!session) return null;
   const downloads = read<{ downloads: Download[] }>("downloads.json", DOWNLOADS_VERSION, DOWNLOADS_MIGRATIONS);
-  droppedPrivateDownloads = (downloads?.downloads ?? []).some((d) => downloadSession(d) !== null);
+  const saved = { profiles: session.profiles ?? {} };
+  droppedPrivateDownloads = (downloads?.downloads ?? []).some((d) => downloadSession(saved, d) !== null);
   const data: HydrateData = {
     profiles: session.profiles,
     profileOrder: session.profileOrder,
@@ -163,7 +164,7 @@ export function loadSession(): HydrateData | null {
     closedGroups: session.closedGroups ?? [],
     deletedGroups: session.deletedGroups ?? [],
     cleanedTabs: session.cleanedTabs ?? [],
-    downloads: (downloads?.downloads ?? []).filter((d) => downloadSession(d) === null).map((d, i) => {
+    downloads: (downloads?.downloads ?? []).filter((d) => downloadSession(saved, d) === null).map((d, i) => {
       const id = `saved-${i}`;
       const left = leftDownloadStaging(d);
       const { staging: _, stagingId: _id, destination: _to, ...kept } = d;
@@ -280,9 +281,9 @@ export function startPersistence() {
 function forgetClosedIncognito(s: BrowserState, prev: BrowserState) {
   for (const w of Object.values(prev.windows)) {
     if (!w.incognito || s.windows[w.id]) continue;
-    const session = privateSession(w.profileId);
-    if (Object.values(s.windows).some((o) => o.incognito && privateSession(o.profileId) === session)) continue;
-    for (const d of s.downloads) if (downloadSession(d) === session && d.state === "downloading") void cancelDownload(d.id);
+    const session = privateSession(s, w.profileId);
+    if (Object.values(s.windows).some((o) => o.incognito && privateSession(s, o.profileId) === session)) continue;
+    for (const d of s.downloads) if (downloadSession(s, d) === session && d.state === "downloading") void cancelDownload(d.id);
     s.forgetDownloads(w.profileId);
     if (session !== null) void endWebKitPrivateSession(session);
   }

@@ -223,7 +223,7 @@ test("page progress: a bar mounted mid-load starts at the current value, follows
   other.unmount();
 });
 
-const key = engineProfile("default");
+const key = engineProfile(S(), "default");
 const setIcons = (fn) =>
   useFavicons.setState((f) => {
     const icons = f.profiles[key] ?? { pages: {}, srcs: {}, appearances: {} };

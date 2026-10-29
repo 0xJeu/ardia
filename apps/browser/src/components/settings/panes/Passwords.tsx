@@ -1,3 +1,4 @@
+import { useBrowser } from "../../../state/browser/store";
 import {
   deletePassword,
   exportPasswords,
@@ -43,7 +44,7 @@ export function PasswordsPane({ profileId: initial }: { profileId?: string | nul
   const [query, setQuery] = useState("");
   const [importStatus, setImportStatus] = useState("");
   const [exportStatus, setExportStatus] = useState("");
-  const profile = engineProfile(s, profileId);
+  const profile = engineProfile(useBrowser.getState(), profileId);
   const unlocked = usePasswordsUnlocked(profile);
   const [autofill = true] = useResource(passwordAutofill, profile);
 

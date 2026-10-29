@@ -10,7 +10,7 @@ import { rootOf } from "../groups/groups";
 import { closesWindow, engineProfile, isIncognitoProfile, plural, resolveWindowId } from "./model";
 import { leavesEmptyWindow } from "../omnibox/newTabBarPolicy";
 import { groupLabel } from "../pins/organize";
-import { engineIdOf, sharingProfiles } from "../profiles/profiles";
+import { sharingProfiles } from "../profiles/profiles";
 import { closeWindowAnimated } from "../windows/closeAnimated";
 import { applyHeldReports } from "../../platform/nativeEvents";
 import { closeWindowDialog } from "../windows/windowClose";
@@ -108,7 +108,7 @@ export async function deleteProfile(profileId: string, windowId?: string) {
     title: `Delete “${profile.name}”?`,
     message: sharing.length
       ? `Its tabs will be closed. Its cookies, passwords, extensions, bookmarks and history stay with ${profileNames(sharing)}, which share them.`
-      : `All data associated with this Profile will be removed. This action cannot be undone.${engineIdOf(profile) === "" ? await keptExtensionsNote() : ""}`,
+      : `All data associated with this Profile will be removed. This action cannot be undone.${engineProfile(s, profileId) === "" ? await keptExtensionsNote() : ""}`,
     confirmTitle: "Delete Profile",
     destructive: true,
     windowId,
@@ -132,7 +132,7 @@ async function profileMoveTarget(move: ProfileMove, target: string | null): Prom
   if (isIncognitoProfile(move.fromProfileId)) return null;
   const profileId = target ?? (await createProfile(move.windowId));
   if (!profileId || profileId === move.fromProfileId) return null;
-  const shared = engineProfile(profileId) === engineProfile(move.fromProfileId);
+  const shared = engineProfile(useBrowser.getState(), profileId) === engineProfile(useBrowser.getState(), move.fromProfileId);
   if (!store().settings.warnBeforeMovingTabsToProfile || shared) return profileId;
   const { confirmed, suppressed } = await confirm({
     title: move.title(store().profiles[profileId]?.name ?? "Profile"),

@@ -26,10 +26,10 @@ const toEntry = (e: EngineHistoryEntry): HistoryEntry => ({
 });
 
 const engineProfiles = (s: Pick<BrowserState, "profiles">) =>
-  [...new Set(Object.keys(s.profiles).filter((id) => !isIncognitoProfile(id)).map(engineProfile))];
+  [...new Set(Object.keys(s.profiles).filter((id) => !isIncognitoProfile(id)).map((id) => engineProfile(s, id)))];
 
 const profilesUsing = (s: Pick<BrowserState, "profiles">, engine: string) =>
-  Object.keys(s.profiles).filter((id) => !isIncognitoProfile(id) && engineProfile(id) === engine);
+  Object.keys(s.profiles).filter((id) => !isIncognitoProfile(id) && engineProfile(s, id) === engine);
 
 function viewOf(engine: string): HistoryEntry[] {
   const s = store();
@@ -189,7 +189,7 @@ export async function migrateHistoryFile(now = Date.now(), { keepMs = LEGACY_KEP
   const perEngine = new Map<string, HistoryEntry[]>();
   for (const [profileId, list] of Object.entries(file.history ?? {})) {
     if (!s.profiles[profileId] || isIncognitoProfile(profileId) || !Array.isArray(list)) continue;
-    const engine = engineProfile(profileId);
+    const engine = engineProfile(s, profileId);
     if (!perEngine.has(engine)) perEngine.set(engine, list);
   }
   for (const engine of perEngine.keys()) migrating.add(engine);
@@ -242,8 +242,8 @@ export function startHistory() {
     if (!moving) loadAll(s);
     for (const id of Object.keys(s.profiles)) {
       if (prev.profiles[id] || isIncognitoProfile(id) || s.history[id]) continue;
-      const list = viewOf(engineProfile(id));
-      if (list.length) setView(engineProfile(id), list);
+      const list = viewOf(engineProfile(s, id));
+      if (list.length) setView(engineProfile(s, id), list);
     }
   });
   return () => {

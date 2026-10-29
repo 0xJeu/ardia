@@ -109,7 +109,7 @@ export function bookmarksAdapter(profileId: string): Adapter {
     apply: (visible) => {
       if (!ready()) return false;
       const s = store();
-      const [b, roots] = ensureRoots(s.bookmarks, profileId);
+      const [b, roots] = ensureRoots(s, profileId);
       const values = new Map([...visible].map(([k, v]) => [bookmarkUuidFor(k.slice(3)), v as BookmarkValue]));
       const keys = new Map([...visible.keys()].map((k) => [bookmarkUuidFor(k.slice(3)), k.slice(3)]));
       const rootOf = (key: string) => (key === "bar" ? roots.bar : key === "other" ? roots.other : null);
@@ -236,7 +236,7 @@ export function historyAdapter(profileId: string): Adapter {
         }
       }
       if (!updates.size) return;
-      const engine = engineProfile(profileId);
+      const engine = engineProfile(useBrowser.getState(), profileId);
       await Promise.all([addHistoryVisits(engine, add, SAME_VISIT_MS), deleteHistoryUrls(engine, remove)]);
       useBrowser.setState((s) => {
         const current = new Map((s.history[profileId] ?? []).map((e) => [e.url, e]));
@@ -294,7 +294,7 @@ export function passwordsAdapter(profileId: string, forced: () => boolean, login
   let lastRead = 0;
   let quietUntil = 0;
   let created = new Map<string, number>();
-  const profile = () => engineProfile(profileId);
+  const profile = () => engineProfile(useBrowser.getState(), profileId);
   const keyOf = (origin: string, username: string) => `pws:${origin}\n${username}`;
   const read = async () => {
     const list = await logins.read(profile());
