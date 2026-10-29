@@ -6,7 +6,7 @@ import { arrangeParked, arrangePinnedArea } from "../pins/pinnedArea";
 import { fromSync } from "../pins/pinOrderChoices";
 import { pinKeyOf } from "../pins/pinMirror";
 import type { Tab } from "../browser/types";
-import { anchorIn, PIN_ORDER, PIN_ROW, ROW, TILE, type PinValue } from "./pinRecords";
+import { PIN_TAB, anchorIn, PIN_ORDER, PIN_ROW, ROW, TILE, type PinValue } from "./pinRecords";
 import { homeWindow, openWindows, settleChoices, store } from "./pinnedSyncState";
 
 export function pinnedRowsAdapter(profileId: string): Adapter {
@@ -39,7 +39,7 @@ export function pinnedRowsAdapter(profileId: string): Adapter {
       }
       return {
         values,
-        ignore: (k) => !known.has(keyOf(k)) && base(`pin:t:${keyOf(k)}`) === undefined,
+        ignore: (k) => !known.has(keyOf(k)) && base(`${PIN_TAB}${keyOf(k)}`) === undefined,
         republish: (k) => keyOf(k) in chosen && !queued(k),
         published: (keys) => settleChoices(profileId, Object.fromEntries([...keys].map(keyOf).filter((k) => k in chosen).map((k) => [k, chosen[k]!]))),
       } satisfies Extraction;
@@ -47,7 +47,7 @@ export function pinnedRowsAdapter(profileId: string): Adapter {
     apply: (visible, changed, base) => {
       const s = store();
       const rows = new Set([...visible].filter(([, v]) => v === ROW).map(([k]) => keyOf(k)));
-      const pos = (t: Tab | undefined) => (t ? (base(`pin:t:${pinKeyOf(t)}`) as PinValue | undefined)?.pos : undefined);
+      const pos = (t: Tab | undefined) => (t ? (base(`${PIN_TAB}${pinKeyOf(t)}`) as PinValue | undefined)?.pos : undefined);
       const stillMarked = new Set([...visible.keys()].map(keyOf));
       const touched = new Set([...changed].map(keyOf).filter((key) => stillMarked.has(key)));
       const wants = (key: string, row: boolean | undefined) => touched.has(key) && !!row !== rows.has(key);

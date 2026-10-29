@@ -4,7 +4,7 @@ import { fromSync } from "../pins/pinOrderChoices";
 import { pinKeyOf } from "../pins/pinMirror";
 import { tileFolderOf, withTileFolder } from "../pins/tileFolders";
 import type { Tab, TileFolder } from "../browser/types";
-import { FOLDER_NAME, syncedFolderId, syncedName, TILE_FOLDER, type FolderNameValue, type TileFolderValue } from "./pinRecords";
+import { PIN_TAB, FOLDER_NAME, syncedFolderId, syncedName, TILE_FOLDER, type FolderNameValue, type TileFolderValue } from "./pinRecords";
 import { homeWindow, openWindows, store } from "./pinnedSyncState";
 
 const localFolders = new Map<string, Set<string>>();
@@ -25,7 +25,7 @@ export function tileFoldersAdapter(profileId: string): Adapter {
         const was = local.get(folder.id);
         if (!was || (folder.renamedAt ?? -1) > (was.renamedAt ?? -1)) local.set(folder.id, folder);
       };
-      const unpinned = (key: string) => recorded(`pin:t:${key}`) && remote(`pin:t:${key}`) === null;
+      const unpinned = (key: string) => recorded(`${PIN_TAB}${key}`) && remote(`${PIN_TAB}${key}`) === null;
       const home = homeWindow(s, profileId);
       for (const w of home ? [home, ...openWindows(s).filter((w) => w.id !== home.id)] : openWindows(s)) {
         for (const id of w.tabIds) {
@@ -43,7 +43,7 @@ export function tileFoldersAdapter(profileId: string): Adapter {
       localFolders.set(profileId, new Set(local.keys()));
       const ignore = (k: string) => {
         if (k.startsWith(FOLDER_NAME)) return !had.has(k.slice(FOLDER_NAME.length));
-        return !known.has(keyOf(k)) && base(`pin:t:${keyOf(k)}`) === undefined && !unpinned(keyOf(k));
+        return !known.has(keyOf(k)) && base(`${PIN_TAB}${keyOf(k)}`) === undefined && !unpinned(keyOf(k));
       };
       return { values, ignore } satisfies Extraction;
     },

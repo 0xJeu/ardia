@@ -7,6 +7,17 @@ export type BookmarkValue = { k: "u" | "f"; p: string; t: string; u?: string; a:
 export type HistoryValue = { t: string; n: number; vt: number[] };
 export type PasswordValue = { o: string; u: string; s: string };
 
+export const SHARE = "share:";
+export const DEVICE = "dev:";
+export const DEVICE_TABS = "tabs:";
+export const PROFILE = "prof:";
+export const PROFILE_THEME = "pth:";
+export const BOOKMARK = "bm:";
+export const HISTORY = "h:";
+
+export const recordId = (prefix: string, key: string) => key.slice(prefix.length);
+export const profileScope = (syncId: string) => `p:${syncId}`;
+
 type Fields = Record<string, unknown>;
 
 const isFields = (v: unknown): v is Fields => typeof v === "object" && v !== null && !Array.isArray(v);

@@ -1,6 +1,7 @@
 import {
   Clock,
   emptyScope,
+  EXTENSION_PREFIX,
   folderTransport,
   syncScope,
   SyncNative,
@@ -20,6 +21,7 @@ import { syncFiles } from "./syncFiles";
 import { confirmThemes, settleAppliedThemes } from "./syncThemes";
 import { addLinkedProfile, appScopeOf, linkedProfileId, linkProfiles, readyToPair, remoteProfileRecord, sharedDataChain } from "./profileLinks";
 import { summarize } from "./syncSummary";
+import { profileScope } from "./records";
 import { onAppEvent } from "../../platform/app";
 import { errorText } from "../../lib/errors";
 
@@ -135,7 +137,7 @@ async function cycleOnce(native: NonNullable<typeof SyncNative>, folder: string,
       const exists = !!s.profiles[profileId];
       const retire = retiring || !!link.retire || !exists;
       if (!retire && !link.enabled) continue;
-      const scope = `p:${link.syncId}`;
+      const scope = profileScope(link.syncId);
       const state = (doc.scopes[scope] ??= emptyScope());
       const settled = watchScope(scope, state, clock);
       try {
@@ -152,7 +154,7 @@ async function cycleOnce(native: NonNullable<typeof SyncNative>, folder: string,
         await settled();
       }
       pending += state.pending;
-      if (!retire && extensionsSynced(doc, profileId)) await extensionsOf(profileId).reconcile(visible(state, "ext:"), Date.now());
+      if (!retire && extensionsSynced(doc, profileId)) await extensionsOf(profileId).reconcile(visible(state, EXTENSION_PREFIX), Date.now());
       if (retire) {
         delete link.retire;
         if (!exists) {

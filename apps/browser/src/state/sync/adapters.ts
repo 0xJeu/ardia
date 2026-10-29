@@ -11,7 +11,7 @@ import { fromSync } from "../pins/pinOrderChoices";
 import { fromLegacy } from "../../lib/legacy";
 import type { BookmarkNode, HistoryEntry } from "../browser/types";
 import { isWebPageUrl } from "../../lib/url";
-import { bookmarkValue, historyValue, passwordValue, type BookmarkValue, type DeviceRecord, type DeviceTabs, type HistoryValue, type PasswordValue, type ShareRecord } from "./records";
+import { BOOKMARK, DEVICE, DEVICE_TABS, HISTORY, SHARE, bookmarkValue, historyValue, passwordValue, recordId, type BookmarkValue, type DeviceRecord, type DeviceTabs, type HistoryValue, type PasswordValue, type ShareRecord } from "./records";
 
 const store = () => useBrowser.getState();
 
@@ -25,7 +25,7 @@ type ShareLink = { syncId: string; enabled: boolean; retire?: boolean };
 
 export function sharedDataAdapter(links: () => Record<string, ShareLink>): Adapter {
   return {
-    prefix: "share:",
+    prefix: SHARE,
     adoptRemoteOnJoin: true,
     publishAfterPull: true,
     extract: (_base, _queued, _now, known) => {
@@ -35,7 +35,7 @@ export function sharedDataAdapter(links: () => Record<string, ShareLink>): Adapt
       for (const [id, link] of Object.entries(all)) {
         const ownerId = store().profiles[id]?.dataId;
         if (!synced(id) || !ownerId || ownerId === id || !synced(ownerId)) continue;
-        const key = `share:${link.syncId}`;
+        const key = `${SHARE}${link.syncId}`;
         if (!known(key)) values.set(key, { o: all[ownerId]!.syncId } satisfies ShareRecord);
       }
       return { values, ignore: (key) => !values.has(key) };
@@ -46,10 +46,10 @@ export function sharedDataAdapter(links: () => Record<string, ShareLink>): Adapt
 
 export function deviceAdapter(deviceId: string, name: () => string, retired = false): Adapter {
   return {
-    prefix: "dev:",
+    prefix: DEVICE,
     extract: () => ({
-      values: retired ? new Map() : new Map([[`dev:${deviceId}`, { n: name() } satisfies DeviceRecord]]),
-      ignore: (key) => key !== `dev:${deviceId}`,
+      values: retired ? new Map() : new Map([[`${DEVICE}${deviceId}`, { n: name() } satisfies DeviceRecord]]),
+      ignore: (key) => key !== `${DEVICE}${deviceId}`,
     }),
     apply: () => true,
   };
@@ -58,7 +58,7 @@ export function deviceAdapter(deviceId: string, name: () => string, retired = fa
 export function bookmarksAdapter(profileId: string): Adapter {
   const ready = () => !!store().bookmarksReady[profileId];
   return {
-    prefix: "bm:",
+    prefix: BOOKMARK,
     extract: (base) => {
       if (!ready()) return null;
       const b = store().bookmarks;
@@ -80,13 +80,13 @@ export function bookmarksAdapter(profileId: string): Adapter {
         const children = folder.children.filter((id) => b.nodes[id]);
         const positions = assignPositions(
           children.map((id) => {
-            const known = bookmarkValue(base(`bm:${keyOf(id)}`));
+            const known = bookmarkValue(base(`${BOOKMARK}${keyOf(id)}`));
             return known?.p === parent ? known.pos : undefined;
           }),
         );
         children.forEach((id, i) => {
           const node = b.nodes[id]!;
-          values.set(`bm:${keyOf(id)}`, {
+          values.set(`${BOOKMARK}${keyOf(id)}`, {
             k: node.kind === "url" ? "u" : "f",
             p: parent,
             t: node.title,
@@ -107,8 +107,8 @@ export function bookmarksAdapter(profileId: string): Adapter {
       const [b, roots] = ensureRoots(s, profileId);
       const decoded = [...visible].map(([k, v]) => [k, bookmarkValue(v)] as const);
       if (decoded.some(([, v]) => !v)) return false;
-      const values = new Map(decoded.map(([k, v]) => [bookmarkUuidFor(k.slice(3)), v!]));
-      const keys = new Map([...visible.keys()].map((k) => [bookmarkUuidFor(k.slice(3)), k.slice(3)]));
+      const values = new Map(decoded.map(([k, v]) => [bookmarkUuidFor(recordId(BOOKMARK, k)), v!]));
+      const keys = new Map([...visible.keys()].map((k) => [bookmarkUuidFor(recordId(BOOKMARK, k)), recordId(BOOKMARK, k)]));
       const rootOf = (key: string) => (key === "bar" ? roots.bar : key === "other" ? roots.other : null);
       const parentOf = new Map<string, string>();
       for (const [id, v] of values) {
@@ -167,14 +167,14 @@ const lastVisitOf = (v: HistoryValue) => Math.max(0, ...v.vt);
 const SAME_VISIT_MS = 1;
 
 export function historyExpired(key: string, value: unknown, now: number) {
-  const v = key.startsWith("h:") ? historyValue(value) : null;
+  const v = key.startsWith(HISTORY) ? historyValue(value) : null;
   return !!v && lastVisitOf(v) < now - HISTORY_WINDOW_MS;
 }
 
 export function historyAdapter(profileId: string): Adapter {
   const ready = () => !!store().historyReady[profileId];
   return {
-    prefix: "h:",
+    prefix: HISTORY,
     extract: (base) => {
       if (!ready()) return null;
       const since = Date.now() - HISTORY_WINDOW_MS;
@@ -184,7 +184,7 @@ export function historyAdapter(profileId: string): Adapter {
       const floor = store().historyFloor[profileId] ?? -Infinity;
       for (const e of view) {
         if (!isWebPageUrl(e.url)) continue;
-        const key = `h:${e.url}`;
+        const key = `${HISTORY}${e.url}`;
         if (e.lastVisit < since) {
           older.add(key);
           continue;
@@ -195,7 +195,7 @@ export function historyAdapter(profileId: string): Adapter {
         values.set(key, edited ? local : known);
       }
       const ignore = (key: string) => {
-        if (older.has(key) || !isWebPageUrl(key.slice(2))) return true;
+        if (older.has(key) || !isWebPageUrl(recordId(HISTORY, key))) return true;
         const known = historyValue(base(key));
         return !!known && (lastVisitOf(known) < since || lastVisitOf(known) <= floor);
       };
@@ -213,7 +213,7 @@ export function historyAdapter(profileId: string): Adapter {
       const remove: string[] = [];
       const updates = new Map<string, HistoryEntry | null>();
       for (const key of changed) {
-        const url = key.slice(2);
+        const url = recordId(HISTORY, key);
         if (!isWebPageUrl(url)) continue;
         const v = historyValue(visible.get(key));
         if (visible.has(key) && !v) continue;
@@ -261,9 +261,9 @@ export function historyAdapter(profileId: string): Adapter {
 const MAX_DEVICE_TABS = 30;
 
 export function deviceTabsAdapter(profileId: string, deviceId: string, name: () => string, retired = false): Adapter {
-  const key = `tabs:${deviceId}`;
+  const key = `${DEVICE_TABS}${deviceId}`;
   return {
-    prefix: "tabs:",
+    prefix: DEVICE_TABS,
     extract: () => {
       if (retired) return { values: new Map(), ignore: (k) => k !== key };
       const s = store();
