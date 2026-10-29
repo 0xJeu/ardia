@@ -212,8 +212,12 @@ async function runCycle({ retiring = false } = {}) {
     forcePasswords = false;
     publishUi({ status: "updated", error: null, pending });
   } catch (error) {
-    console.warn("[sync] cycle failed", error);
-    publishUi({ status: "stalled", error: errorText(error) });
+    if ((error as { code?: unknown } | null)?.code === "ERR_SYNC_FOLDER_UNREADABLE") {
+      publishUi({ status: "offline", error: errorText(error) });
+    } else {
+      console.warn("[sync] cycle failed", error);
+      publishUi({ status: "stalled", error: errorText(error) });
+    }
   } finally {
     clearTimeout(slow);
     running = false;
