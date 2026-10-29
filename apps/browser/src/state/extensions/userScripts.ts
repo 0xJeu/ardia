@@ -16,7 +16,7 @@ import { errorText } from "../../lib/errors";
 export type ScriptsOutcome = { ok: true } | { disabled: true } | { removed: true } | { error: string };
 type Status = { generation: number; profiles: Record<string, ScriptsOutcome> };
 
-const enabled = () => useBrowser.getState().settings.cliControl ?? false;
+const enabled = () => useBrowser.getState().settings.cliControl;
 
 export function scriptsTargets(s: Pick<BrowserState, "profileOrder" | "profiles">): Map<string, string[]> {
   const targets = new Map<string, string[]>();
@@ -168,7 +168,7 @@ export function startUserScripts() {
   let watching = false;
   let key = "";
   const sync = (s: BrowserState) => {
-    const on = s.settings.cliControl ?? false;
+    const on = s.settings.cliControl;
     const nextKey = on ? targetsKey(scriptsTargets(s)) : "";
     if (on === watching && nextKey === key) return;
     watching = on;

@@ -27,7 +27,7 @@ const siteLabel = (site: string) => site.replace(/^https:\/\//, "");
 
 export function EnginesPane() {
   const engine = useSettings((settings) => defaultEngine({ settings }));
-  const rules = useSettings((s) => s.websiteEngines ?? {});
+  const rules = useSettings((s) => s.websiteEngines);
   const sites = Object.keys(rules).sort((a, b) => siteLabel(a).localeCompare(siteLabel(b)));
   const protectedVideo = useSettings((s) => s.protectedVideoInWebKit);
   const setDefault = (value: PageEngine) => updateSettings({ pageEngine: value });

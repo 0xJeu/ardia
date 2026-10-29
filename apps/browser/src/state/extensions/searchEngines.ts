@@ -29,7 +29,7 @@ async function refreshExtensionSearchEngines(profile: string) {
   if (list == null) return;
   const engines = extensionEnginesFromChrome(profile, list);
   const s = useBrowser.getState();
-  const current = s.settings.extensionSearchEngines ?? [];
+  const current = s.settings.extensionSearchEngines;
   const next = [...current.filter((e) => e.profile !== profile), ...engines];
   if (JSON.stringify(next) !== JSON.stringify(current)) s.updateSettings({ extensionSearchEngines: next });
 }

@@ -41,12 +41,12 @@ export function keepActiveSiteOf(typed: string): string {
 export async function keepSiteActive(typed: string): Promise<string | null> {
   const site = keepActiveSiteOf(typed);
   if (!site || /\s/.test(site) || !(await isKeepActiveSiteValid(site).catch(() => false))) return "Enter a site, like youtube.com.";
-  const sites = store().settings.keepActiveSites ?? [];
+  const sites = store().settings.keepActiveSites;
   if (!sites.includes(site)) store().updateSettings({ keepActiveSites: [...sites, site] });
   return null;
 }
 
 export function stopKeepingSiteActive(site: string) {
-  const sites = store().settings.keepActiveSites ?? [];
+  const sites = store().settings.keepActiveSites;
   if (sites.includes(site)) store().updateSettings({ keepActiveSites: sites.filter((s) => s !== site) });
 }

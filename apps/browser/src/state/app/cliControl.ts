@@ -180,7 +180,7 @@ export function startCliControl() {
   onCliControlChanged((server) => apply(server, inFlight === 0));
   let applied: boolean | null = null;
   const sync = () => {
-    const on = useBrowser.getState().settings.cliControl ?? false;
+    const on = useBrowser.getState().settings.cliControl;
     if (on === applied) return;
     const first = applied === null;
     applied = on;

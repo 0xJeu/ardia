@@ -57,7 +57,7 @@ function useContentBlocker() {
 export function PrivacyPane() {
   const theme = useTheme();
   const [blocker, refresh] = useContentBlocker();
-  const commandScrollZoom = useSettings((s) => s.commandScrollZoom ?? true);
+  const commandScrollZoom = useSettings((s) => s.commandScrollZoom);
 
   const toggleCategory = async (c: FilterListCategory, on: boolean) => {
     if (!blocker) return;

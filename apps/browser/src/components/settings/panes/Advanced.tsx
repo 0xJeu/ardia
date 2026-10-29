@@ -81,7 +81,7 @@ export function AdvancedPane() {
         </Row>
       </Group>
 
-      <KeepActiveSites sites={settings.keepActiveSites ?? []} />
+      <KeepActiveSites sites={settings.keepActiveSites} />
 
       <SectionHeader title="Data" />
       <Group>
@@ -129,7 +129,7 @@ export function AdvancedPane() {
 
 function CommandLineSection() {
   const theme = useTheme();
-  const on = useSettings((s) => s.cliControl ?? false);
+  const on = useSettings((s) => s.cliControl);
   const update = updateSettings;
   const cli = useCli();
   const server = cli.server;

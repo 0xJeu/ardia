@@ -4,7 +4,7 @@ import { useBrowser } from "../browser/store";
 export function startCommandScrollZoom() {
   let sent: boolean | null = null;
   const sync = () => {
-    const on = useBrowser.getState().settings.commandScrollZoom ?? true;
+    const on = useBrowser.getState().settings.commandScrollZoom;
     if (on !== sent) void setCommandScrollZoom((sent = on));
   };
   sync();

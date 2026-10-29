@@ -280,7 +280,7 @@ export function resolveDraft<K extends keyof Settings>(
   settings: Settings,
 ): Pick<Settings, K> {
   const presetValues = PRESETS[preset];
-  const chosen = settings.chosen ?? [];
+  const chosen = settings.chosen;
   return Object.fromEntries(
     keys.map((k) => [k, k in draft ? draft[k] : k in presetValues && !chosen.includes(k) ? presetValues[k] : settings[k]]),
   ) as Pick<Settings, K>;

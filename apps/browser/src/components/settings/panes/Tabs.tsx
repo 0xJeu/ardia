@@ -3,7 +3,7 @@ import { View } from "react-native";
 import { useTheme } from "../../ui/theme";
 import { useSettings, useTabLayout } from "../../../state/browser/hooks";
 import { chooseTabLayout, updateSettings } from "../../../state/settings/actions";
-import { peekModifierOf, splitLinkModifierOf, type PeekModifier, type Settings, type SplitLinkModifier } from "../../../state/settings/settings";
+import type { PeekModifier, Settings, SplitLinkModifier } from "../../../state/settings/settings";
 import { Box, Button, Checkbox, PopUp, Sheet, Text, TextField, Toggle, type Option } from "../../ui";
 import { durationMinutes, durationParts, type DurationUnit } from "../../../lib/time";
 import { cleanUpChoices, CUSTOM_CLEAN_UP, DAILY_CLEAN_UP_MINUTES } from "../../../state/settings/cleanUpAfter";
@@ -27,8 +27,8 @@ const SPLIT_WITH: { value: SplitLinkModifier; title: string }[] = [
 const withNote = (anchor: string, note: string | null) => (note ? `${setting(anchor)?.description ?? ""} ${note}`.trim() : undefined);
 
 function LinkKeys({ settings, update }: { settings: Settings; update: (patch: Partial<Settings>) => void }) {
-  const peekWith = peekModifierOf(settings);
-  const splitWith = splitLinkModifierOf(settings);
+  const peekWith = settings.peekModifier;
+  const splitWith = settings.splitLinkModifier;
   const peekOptions = PEEK_WITH.map((o) => (o.value === "alt" && splitWith === "alt" ? { ...o, title: "⌥-click (split view moves to ⌥⇧-click)" } : o));
   const splitOptions = SPLIT_WITH.map((o) => (o.value === "alt" && peekWith === "alt" ? { ...o, title: "⌥-click (Peek moves to ⇧-click)" } : o));
   return (

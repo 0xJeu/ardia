@@ -10,7 +10,7 @@ type MutedTab = Pick<Tab, "url" | "windowId" | "profileId" | "muted">;
 
 export function isHostMuted(s: SiteMutes, tab: Pick<Tab, "windowId" | "profileId">, host: string): boolean {
   const own = isIncognitoProfile(tab.profileId) ? s.privateSiteMutes[tab.windowId]?.[host] : undefined;
-  return own ?? (s.settings.mutedSites ?? []).includes(host);
+  return own ?? s.settings.mutedSites.includes(host);
 }
 
 const HOST_CACHE_LIMIT = 512;

@@ -189,7 +189,7 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
       const own = { ...s.privateSiteMutes[tab.windowId], [host]: muted };
       return set({ privateSiteMutes: { ...get().privateSiteMutes, [tab.windowId]: own } });
     }
-    const sites = new Set(s.settings.mutedSites ?? []);
+    const sites = new Set(s.settings.mutedSites);
     if (muted) sites.add(host);
     else sites.delete(host);
     get().updateSettings({ mutedSites: [...sites] });
