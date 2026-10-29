@@ -1,12 +1,6 @@
-export const isWebPageUrl = (url: string) => /^(https?|file):/i.test(url);
+import { hostOf } from "@ardia/core";
 
-export function hostOf(url: string): string {
-  try {
-    return new URL(url).hostname.replace(/^www\./, "");
-  } catch {
-    return "";
-  }
-}
+export const isWebPageUrl = (url: string) => /^(https?|file):/i.test(url);
 
 export const hostOrOrigin = (origin: string) => hostOf(origin) || origin;
 

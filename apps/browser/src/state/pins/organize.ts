@@ -5,7 +5,7 @@ import { activeTabId, bookmarkProfileId, inPinnedContainer, isIncognitoProfile, 
 import { activated, apply, removeTabs, withNewTab } from "../tabs/tabs";
 import { clickedSelection, dropping, type ClickMods, type Drop } from "../drag/drops";
 import type { ClosedGroup, ClosedTab, Tab, TabGroup } from "../browser/types";
-import { hostOf } from "../../lib/url";
+import { hostOf } from "@ardia/core";
 import type { PinChoices, PinSync } from "./pinChoices";
 import { groupLabel, groupOf, movingGroup, withGroup, withRowsGrouped, type GroupPlacement } from "./tabGrouping";
 import { groupingOnto, placing, type TabPlacement } from "./placing";

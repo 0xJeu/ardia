@@ -22,7 +22,7 @@ import {
   useTicker,
   type Session,
 } from "../../state/media/media";
-import { hostOf } from "../../lib/url";
+import { hostOf } from "@ardia/core";
 import { ART_HOVER_SCRIM, mediaType, useMediaTokens, type MediaTokens } from "./tokens";
 
 export const MINI_PLAYER_WIDTH = 320;

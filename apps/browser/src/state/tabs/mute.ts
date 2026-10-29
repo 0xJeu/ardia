@@ -1,7 +1,7 @@
 import type { BrowserState } from "../browser/store";
 import type { Tab } from "../browser/types";
 import { isIncognitoProfile } from "../browser/model";
-import { hostOf } from "../../lib/url";
+import { hostOf } from "@ardia/core";
 
 export type MuteState = "site" | "tab" | null;
 
