@@ -4,7 +4,6 @@ import { useTheme } from "../../ui/theme";
 import { useSettings, useTabLayout } from "../../../state/browser/hooks";
 import { chooseTabLayout, updateSettings } from "../../../state/settings/actions";
 import { peekModifierOf, splitLinkModifierOf, type PeekModifier, type Settings, type SplitLinkModifier } from "../../../state/settings/settings";
-import { liquidGlass } from "../../ui/Glass";
 import { Box, Button, Checkbox, PopUp, Sheet, Text, TextField, Toggle, type Option } from "../../ui";
 import { durationMinutes, durationParts, type DurationUnit } from "../../../lib/time";
 import { cleanUpChoices, CUSTOM_CLEAN_UP, DAILY_CLEAN_UP_MINUTES } from "../../../state/settings/cleanUpAfter";
@@ -89,10 +88,10 @@ export function TabsPane() {
       </View>
       <Group style={{ marginTop: 14 }}>
         {toggle("hideToolbarWhileScrolling", "tabs.hideToolbarWhileScrolling")}
-        {!top && toggle("showSidebarButton", "tabs.showSidebarButton")}
-        {!top && toggle("showClearButton", "tabs.showClearButton")}
-        {!top && toggle("balancedTopApps", "tabs.balancedTopApps")}
-        {liquidGlass && toggle("pinnedTabIconRing", "tabs.pinnedTabIconRing")}
+        {toggle("showSidebarButton", "tabs.showSidebarButton")}
+        {toggle("showClearButton", "tabs.showClearButton")}
+        {toggle("balancedTopApps", "tabs.balancedTopApps")}
+        {toggle("pinnedTabIconRing", "tabs.pinnedTabIconRing")}
         {toggle("fadeUnloadedTabs", "tabs.fadeUnloadedTabs")}
       </Group>
 
@@ -112,11 +111,9 @@ export function TabsPane() {
         <Row anchor="tabs.newTabPosition">
           <PopUp value={settings.newTabPosition} options={top ? NEW_TABS_ACROSS : NEW_TABS_DOWN} onChange={(newTabPosition) => update({ newTabPosition })} minWidth={190} />
         </Row>
-        {!top && (
-          <Row anchor="tabs.newTabButtonPosition">
-            <PopUp value={settings.newTabButtonPosition} options={NEW_TAB_BUTTON} onChange={(newTabButtonPosition) => update({ newTabButtonPosition })} minWidth={190} />
-          </Row>
-        )}
+        <Row anchor="tabs.newTabButtonPosition">
+          <PopUp value={settings.newTabButtonPosition} options={NEW_TAB_BUTTON} onChange={(newTabButtonPosition) => update({ newTabButtonPosition })} minWidth={190} />
+        </Row>
         {toggle("shareTabsAcrossWindows", "tabs.shareTabsAcrossWindows")}
         {toggle("warnBeforeClosingLastTab", "tabs.warnBeforeClosingLastTab")}
         {toggle("tabReorderHaptics", "tabs.tabReorderHaptics")}

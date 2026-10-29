@@ -99,3 +99,24 @@ test("every settings row with a fixed title is searchable", () => {
     }
   }
 });
+
+test("a row its pane doesn't draw is left out of search, by the same rule the pane hides it with", async () => {
+  const { unshownSettings } = await import("./settingsIndex.ts");
+  const { DEFAULT_SETTINGS } = await import("../../state/settings/settings.ts");
+  const unshown = (settings, env) => new Set(unshownSettings({ ...DEFAULT_SETTINGS, ...settings }, env).split("\n").filter(Boolean));
+  const across = unshown({}, { top: true, liquidGlass: false });
+  for (const id of ["tabs.showSidebarButton", "tabs.showClearButton", "tabs.balancedTopApps", "tabs.newTabButtonPosition", "tabs.pinnedTabIconRing"]) assert.ok(across.has(id), id);
+  assert.deepEqual([...unshown({}, { top: false, liquidGlass: true })], []);
+  assert.ok(unshown({ memorySaver: false }, { top: false, liquidGlass: true }).has("advanced.memorySaverMode"));
+  assert.ok(unshown({ pageEngine: "webkit" }, { top: false, liquidGlass: true }).has("engines.protectedVideo"));
+});
+
+const SHOWN_BY_LOADED_DATA = ["General.tsx: general.downloadsAllProfiles", "General.tsx: general.updateChannel"];
+
+test("panes leave showing and hiding an anchored row to the row's own rule", () => {
+  const dir = new URL("./panes/", import.meta.url);
+  const wrapped = readdirSync(dir).flatMap((file) =>
+    [...readFileSync(new URL(file, dir), "utf8").matchAll(/\{[^{}\n]*&&\s*(?:\(\s*)?(?:<Row anchor="([\w.]+)"|toggle\("\w+", "([\w.]+)"\))/g)].map((m) => `${file}: ${m[1] ?? m[2]}`),
+  );
+  assert.deepEqual(wrapped, SHOWN_BY_LOADED_DATA);
+});

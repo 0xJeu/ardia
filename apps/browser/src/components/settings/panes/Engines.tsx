@@ -42,11 +42,9 @@ export function EnginesPane() {
         <Row anchor="engines.recommendedDefault">
           <Button title="Use Recommended" disabled={engine === RECOMMENDED_ENGINE} onPress={() => setDefault(RECOMMENDED_ENGINE)} />
         </Row>
-        {engine === "chromium" && (
-          <Row anchor="engines.protectedVideo">
-            <Toggle value={protectedVideo} onChange={(value) => updateSettings({ protectedVideoInWebKit: value })} />
-          </Row>
-        )}
+        <Row anchor="engines.protectedVideo">
+          <Toggle value={protectedVideo} onChange={(value) => updateSettings({ protectedVideoInWebKit: value })} />
+        </Row>
       </Group>
 
       <SectionHeader anchor="engines.websiteRules" action={<Button title="Add Website Rule…" icon="plus" onPress={() => showSettingsSheet(<RuleSheet />)} />} />

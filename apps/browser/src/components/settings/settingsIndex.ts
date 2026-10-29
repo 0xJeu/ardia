@@ -1,9 +1,10 @@
 import { prepare, type Searchable } from "./searchMatch";
 import type { SettingsPane } from "../../state/settings/settingsWindows";
+import type { Settings } from "../../state/settings/settings";
 import { generalRows } from "./rows/generalRows";
 import { privacyRows } from "./rows/privacyRows";
 import { toolRows } from "./rows/toolRows";
-import type { SettingSection } from "./rows/types";
+import type { SettingSection, SettingsEnv } from "./rows/types";
 import { ADVANCED_SETTINGS } from "./rows/advanced";
 
 export const PANES: { id: SettingsPane; title: string; icon: string }[] = [
@@ -26,7 +27,7 @@ export const PANES: { id: SettingsPane; title: string; icon: string }[] = [
 
 const ROWS: Record<SettingsPane, SettingSection[]> = { ...generalRows, ...privacyRows, ...toolRows };
 
-export type SettingEntry = Searchable & { pane: SettingsPane; section: string; advanced: boolean; liquidGlassOnly?: true };
+export type SettingEntry = Searchable & { pane: SettingsPane; section: string; advanced: boolean; shown?: (settings: Settings, env: SettingsEnv) => boolean };
 
 const paneTitle = (pane: SettingsPane) => PANES.find((p) => p.id === pane)!.title;
 
@@ -47,6 +48,11 @@ export function setting(id: string): SettingEntry {
 }
 
 export const SETTINGS_INDEX = prepare(SETTINGS);
+
+export const unshownSettings = (settings: Settings, env: SettingsEnv) =>
+  SETTINGS.filter((e) => e.shown && !e.shown(settings, env))
+    .map((e) => e.id)
+    .join("\n");
 
 export const sectionEntries = (pane: SettingsPane, section: string) => SETTINGS.filter((s) => s.pane === pane && s.section === section);
 

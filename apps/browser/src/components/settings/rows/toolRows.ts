@@ -90,6 +90,7 @@ export const toolRows: Pick<Record<SettingsPane, SettingSection[]>, "shortcuts" 
         protectedVideo: {
           title: "Open streaming sites in WebKit",
           description: "Netflix, Disney+, Max, Prime Video, Hulu, Apple TV+, Spotify and other sites whose video is protected open in WebKit, which plays it. A website rule wins.",
+          shown: (s) => s.pageEngine !== "webkit",
           keywords: ["drm", "netflix", "disney", "hbo", "max", "prime video", "hulu", "spotify", "apple tv", "fairplay", "widevine", "streaming", "tencent video", "v.qq.com"],
         },
       },
@@ -144,6 +145,7 @@ export const toolRows: Pick<Record<SettingsPane, SettingSection[]>, "shortcuts" 
         },
         memorySaverMode: {
           title: "Memory savings",
+          shown: (s) => s.memorySaver,
           keywords: ["sleep", "sleeping tabs", "moderate", "balanced", "maximum", "memory", "discard", "hibernate", "inactive tabs"],
         },
         batterySaver: { title: "Battery Saver", keywords: ["energy", "energy saver", "low power mode", "performance", "power"] },

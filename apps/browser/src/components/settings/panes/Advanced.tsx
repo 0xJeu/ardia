@@ -59,16 +59,14 @@ export function AdvancedPane() {
         <Row anchor="advanced.memorySaver">
           <Toggle value={settings.memorySaver} onChange={(v) => update({ memorySaver: v })} />
         </Row>
-        {settings.memorySaver && (
-          <Row anchor="advanced.memorySaverMode" description={(MEMORY_SAVER_MODES.find((m) => m.value === settings.memorySaverMode) ?? MEMORY_SAVER_MODES[1]!).description}>
-            <PopUp
-              value={settings.memorySaverMode}
-              options={MEMORY_SAVER_MODES.map(({ value, title }) => ({ value, title }))}
-              onChange={(v) => update({ memorySaverMode: v })}
-              minWidth={190}
-            />
-          </Row>
-        )}
+        <Row anchor="advanced.memorySaverMode" description={(MEMORY_SAVER_MODES.find((m) => m.value === settings.memorySaverMode) ?? MEMORY_SAVER_MODES[1]!).description}>
+          <PopUp
+            value={settings.memorySaverMode}
+            options={MEMORY_SAVER_MODES.map(({ value, title }) => ({ value, title }))}
+            onChange={(v) => update({ memorySaverMode: v })}
+            minWidth={190}
+          />
+        </Row>
         <Row anchor="advanced.batterySaver" description={BATTERY_SAVER_DESCRIPTIONS[settings.batterySaverWhen]}>
           <PopUp
             value={settings.batterySaverWhen}

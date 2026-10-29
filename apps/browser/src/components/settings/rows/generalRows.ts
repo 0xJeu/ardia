@@ -1,5 +1,7 @@
-import { APP, type SettingSection } from "./types";
+import { APP, type SettingSection, type SettingsEnv } from "./types";
 import type { SettingsPane } from "../../../state/settings/settingsWindows";
+
+const inSidebar = (_: unknown, env: SettingsEnv) => !env.top;
 
 export const generalRows: Pick<Record<SettingsPane, SettingSection[]>, "general" | "profiles" | "sync" | "tabs" | "appearance"> = {
   general: [
@@ -106,22 +108,24 @@ export const generalRows: Pick<Record<SettingsPane, SettingSection[]>, "general"
           description: "Scrolling down tucks the toolbar into a thin strip with the site's name. Scroll up, or click the strip, to bring it back.",
           keywords: ["auto hide", "compact"],
         },
-        showSidebarButton: { title: "Show sidebar button", description: "⌘S and View › Auto-Hide Tabs still hide and show the sidebar.", keywords: ["toggle sidebar"] },
+        showSidebarButton: { title: "Show sidebar button", description: "⌘S and View › Auto-Hide Tabs still hide and show the sidebar.", keywords: ["toggle sidebar"], shown: inSidebar },
         showClearButton: {
           title: "Show Clear button",
           description: "The ↓ Clear between your pinned tabs and your tabs. ⇧⌘K and File › Close All Tabs still clear them.",
           keywords: ["clear unpinned tabs", "close all tabs", "clear today", "divider", "arc"],
+          shown: inSidebar,
         },
         balancedTopApps: {
           title: "Grow Top Apps as the sidebar widens",
           description: "As in Arc: up to four tiles across in balanced rows, and a wider sidebar makes them larger. Off, as in Dia, each row fills with as many tiles as fit.",
           keywords: ["pinned tiles", "favorites", "grid", "columns", "rows", "arc"],
+          shown: inSidebar,
         },
         pinnedTabIconRing: {
           title: "Highlight pinned tabs in their icon's colors",
           description: "As in Dia: the Top App you're on gets a ring and tint from its icon instead of the raised glass.",
           keywords: ["dia", "liquid glass", "top apps", "favicon", "colour", "ring", "tint", "selected tile"],
-          liquidGlassOnly: true,
+          shown: (_, env) => env.liquidGlass,
         },
         fadeUnloadedTabs: {
           title: "Fade icons of unloaded tabs",
@@ -147,6 +151,7 @@ export const generalRows: Pick<Record<SettingsPane, SettingSection[]>, "general"
           title: "New Tab button",
           description: "Where + New Tab sits in the sidebar, whatever Add new tabs says. At the top it stays above your tabs and scrolls with them; at the bottom it follows your last tab and stays at the sidebar's bottom edge once the tabs fill it.",
           keywords: ["new tab button", "plus", "+", "top", "bottom", "sticky", "docked", "position"],
+          shown: inSidebar,
         },
         shareTabsAcrossWindows: {
           title: "Share tabs across windows",

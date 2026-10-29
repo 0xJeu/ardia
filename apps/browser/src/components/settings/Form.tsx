@@ -1,21 +1,30 @@
-import { Children, createContext, isValidElement, useContext, useEffect, useRef, type ReactNode } from "react";
+import { Children, createContext, isValidElement, useContext, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { Animated, StyleSheet, Text, View, type StyleProp, type ViewStyle } from "react-native";
 import { registerAnchor, settingsSectionKey, useSettingsSearch } from "../../state/settings/searchState";
-import { useSettings } from "../../state/browser/hooks";
+import { useSettings, useTabLayout } from "../../state/browser/hooks";
 import type { SettingsPane } from "../../state/settings/settingsWindows";
 import { curve } from "../ui/motion";
 import { Group as PlainGroup, Row as PlainRow } from "../ui/Row";
 import { useTheme } from "../ui/theme";
 import { font, space, weight } from "../ui/tokens";
-import { findSetting, sectionEntries, setting, type SettingEntry } from "./settingsIndex";
+import { liquidGlass } from "../ui/Glass";
+import { findSetting, sectionEntries, setting, unshownSettings, type SettingEntry } from "./settingsIndex";
 import { settingsMotion } from "./tokens";
 
 export const SettingsPaneContext = createContext<SettingsPane | null>(null);
 
+export function useUnshownSettings(): ReadonlySet<string> {
+  const top = useTabLayout() === "top";
+  const ids = useSettings((s) => unshownSettings(s, { top, liquidGlass }));
+  return useMemo(() => new Set(ids ? ids.split("\n") : []), [ids]);
+}
+
 export function useHiddenSetting() {
   const shown = useSettings((s) => s.showAdvancedSettings);
   const revealed = useSettingsSearch((s) => s.revealedSections);
-  return (entry: SettingEntry | undefined) => !!entry && entry.advanced && !shown && !revealed.includes(settingsSectionKey(entry.pane, entry.section));
+  const unshown = useUnshownSettings();
+  return (entry: SettingEntry | undefined) =>
+    !!entry && (unshown.has(entry.id) || (entry.advanced && !shown && !revealed.includes(settingsSectionKey(entry.pane, entry.section))));
 }
 
 function useHiddenSection(pane: SettingsPane | null | undefined, section: string | undefined) {
