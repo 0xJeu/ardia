@@ -82,8 +82,7 @@ static NSString *DisplayMediaAudioFor(NSDictionary *offer, NSString *sourceId) {
 namespace ardia_web_view {
 
 void AnswerHello(ArdiaCoreTab *tab, NSString *profile, NSString *frameId, BOOL main, NSString *verifiedOrigin) {
-  const BOOL verified = verifiedOrigin.length && ![verifiedOrigin isEqualToString:@"null"];
-  NSString *origin = main && verified ? verifiedOrigin : OriginOf(tab.url);
+  NSString *origin = (main ? VerifiedOrigin(verifiedOrigin) : nil) ?: OriginOf(tab.url);
   __weak ArdiaCoreTab *weakTab = tab;
   void (^answer)(BOOL) = ^(BOOL blockAutoplay) {
     ArdiaCoreTab *to = weakTab;
@@ -138,7 +137,7 @@ NSMutableOrderedSet<NSString *> *ScriptFramesOf(ArdiaCoreTab *tab) {
                     frame:(NSString *)frameId
                      main:(BOOL)main
                    origin:(NSString *)verifiedOrigin {
-  NSString *sender = verifiedOrigin.length && ![verifiedOrigin isEqualToString:@"null"] ? verifiedOrigin : main ? OriginOf(tab.url) : nil;
+  NSString *sender = VerifiedOrigin(verifiedOrigin) ?: (main ? OriginOf(tab.url) : nil);
   id data = JSONValue(json);
   NSDictionary *dict = [data isKindOfClass:NSDictionary.class] ? data : nil;
   frameId = frameId ?: @"";

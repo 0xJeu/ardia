@@ -248,11 +248,6 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
 
   private var muteScript: String { "window.__ardia && window.__ardia.mute(\(muted ? "true" : "false"))" }
 
-  var origin: String? {
-    guard let url = webView?.url, let scheme = url.scheme?.lowercased(), let host = url.host, scheme == "http" || scheme == "https" else { return nil }
-    return "\(scheme)://\(host.lowercased())" + (url.port.map { ":\($0)" } ?? "")
-  }
-
 
   private func runInWorld(_ code: String, frame: WKFrameInfo? = nil, completion: ((Any?) -> Void)? = nil) {
     guard let view = webView else {
@@ -394,11 +389,8 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
       return ["level": "none", "url": webView?.url?.absoluteString ?? "", "origin": NSNull()]
     }
     let scheme = url.scheme?.lowercased() ?? ""
-    var origin: Any = NSNull()
-    if let host = url.host, scheme == "http" || scheme == "https" {
-      origin = "\(scheme)://\(host)" + (url.port.map { ":\($0)" } ?? "")
-    }
-    var info: [String: Any] = ["url": url.absoluteString, "origin": origin]
+    let origin = scheme == "http" || scheme == "https" ? Origins.of(url) : nil
+    var info: [String: Any] = ["url": url.absoluteString, "origin": origin ?? NSNull()]
     switch scheme {
     case "https":
       info["level"] = view.hasOnlySecureContent ? "secure" : "mixed"
@@ -462,7 +454,7 @@ final class WebKitTab: NSView, WKNavigationDelegate, WKUIDelegate {
       let fromMainFrame = action.sourceFrame.isMainFrame || action.targetFrame?.isMainFrame == true
       guard action.navigationType == .linkActivated || fromMainFrame else { return }
       let source = action.sourceFrame.securityOrigin
-      let origin = source.host.isEmpty ? nil : "\(source.protocol)://\(source.host)" + (source.port > 0 ? ":\(source.port)" : "")
+      let origin = source.host.isEmpty ? nil : Origins.of(source)
       if let request = WebKitHub.shared.externalAppRequest(url: url, origin: origin, profile: profile) { emit("externalApp", request) }
       return
     }
