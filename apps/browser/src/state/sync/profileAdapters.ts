@@ -3,6 +3,7 @@ import { useBrowser } from "../browser/store";
 import { DEFAULT_PROFILE_ID } from "../settings/settings";
 import { sanitizeTheme } from "../../lib/profileLook";
 import type { Profile, ProfileTheme } from "../browser/types";
+import { profileRecord } from "./records";
 
 const store = () => useBrowser.getState();
 
@@ -64,7 +65,7 @@ export function profilesAdapter(links: () => Record<string, { syncId: string }>)
     },
     apply: (visible, changed, _base, records) => {
       for (const [id, { syncId }] of linked()) {
-        const record = visible.get(`prof:${syncId}`) as ProfileRecord | undefined;
+        const record = profileRecord(visible.get(`prof:${syncId}`));
         if (!record || !changed.has(`prof:${syncId}`)) continue;
         const legacy = store().profiles[id]!.theme === undefined && !records.known(`pth:${syncId}`) ? legacyThemeOf(record) : null;
         store().updateProfile(id, { name: record.n, icon: record.i });

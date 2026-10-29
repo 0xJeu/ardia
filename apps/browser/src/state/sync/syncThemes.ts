@@ -1,13 +1,14 @@
 import { canonical, type ScopeState } from "../../platform/sync";
 import { useBrowser } from "../browser/store";
 import type { Profile } from "../browser/types";
-import { legacyThemeOf, themeAngleKey, themeFromRecord, type ProfileRecord } from "./profileAdapters";
+import { legacyThemeOf, themeAngleKey, themeFromRecord } from "./profileAdapters";
+import { profileRecord } from "./records";
 import type { ProfileLink } from "./syncDoc";
 
 function pairedTheme(app: ScopeState, syncId: string): Pick<Profile, "theme"> | null {
   const record = app.records[`pth:${syncId}`]?.v;
   if (record) return themeFromRecord(record, app.records[themeAngleKey(syncId)]?.v);
-  const profile = app.records[`prof:${syncId}`]?.v as ProfileRecord | null | undefined;
+  const profile = profileRecord(app.records[`prof:${syncId}`]?.v);
   return profile ? legacyThemeOf(profile) : null;
 }
 

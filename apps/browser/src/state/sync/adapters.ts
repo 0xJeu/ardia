@@ -11,6 +11,7 @@ import { fromSync } from "../pins/pinOrderChoices";
 import { fromLegacy } from "../../lib/legacy";
 import type { BookmarkNode, HistoryEntry } from "../browser/types";
 import { isWebPageUrl } from "../../lib/url";
+import { bookmarkValue, historyValue, passwordValue, type BookmarkValue, type DeviceRecord, type DeviceTabs, type HistoryValue, type PasswordValue, type ShareRecord } from "./records";
 
 const store = () => useBrowser.getState();
 
@@ -19,8 +20,6 @@ export const inTodaysNames = (adapter: Adapter): Adapter => ({
   apply: (visible, changed, base, records) =>
     adapter.apply(new Map([...visible].map(([key, value]) => [key, fromLegacy(value)])), changed, (key) => fromLegacy(base(key)), records),
 });
-
-export type ShareRecord = { o: string };
 
 type ShareLink = { syncId: string; enabled: boolean; retire?: boolean };
 
@@ -45,8 +44,6 @@ export function sharedDataAdapter(links: () => Record<string, ShareLink>): Adapt
   };
 }
 
-export type DeviceRecord = { n: string };
-
 export function deviceAdapter(deviceId: string, name: () => string, retired = false): Adapter {
   return {
     prefix: "dev:",
@@ -57,8 +54,6 @@ export function deviceAdapter(deviceId: string, name: () => string, retired = fa
     apply: () => true,
   };
 }
-
-type BookmarkValue = { k: "u" | "f"; p: string; t: string; u?: string; a: number; pos: string };
 
 export function bookmarksAdapter(profileId: string): Adapter {
   const ready = () => !!store().bookmarksReady[profileId];
@@ -85,7 +80,7 @@ export function bookmarksAdapter(profileId: string): Adapter {
         const children = folder.children.filter((id) => b.nodes[id]);
         const positions = assignPositions(
           children.map((id) => {
-            const known = base(`bm:${keyOf(id)}`) as BookmarkValue | undefined;
+            const known = bookmarkValue(base(`bm:${keyOf(id)}`));
             return known?.p === parent ? known.pos : undefined;
           }),
         );
@@ -110,7 +105,9 @@ export function bookmarksAdapter(profileId: string): Adapter {
       if (!ready()) return false;
       const s = store();
       const [b, roots] = ensureRoots(s, profileId);
-      const values = new Map([...visible].map(([k, v]) => [bookmarkUuidFor(k.slice(3)), v as BookmarkValue]));
+      const decoded = [...visible].map(([k, v]) => [k, bookmarkValue(v)] as const);
+      if (decoded.some(([, v]) => !v)) return false;
+      const values = new Map(decoded.map(([k, v]) => [bookmarkUuidFor(k.slice(3)), v!]));
       const keys = new Map([...visible.keys()].map((k) => [bookmarkUuidFor(k.slice(3)), k.slice(3)]));
       const rootOf = (key: string) => (key === "bar" ? roots.bar : key === "other" ? roots.other : null);
       const parentOf = new Map<string, string>();
@@ -166,12 +163,13 @@ export function bookmarksAdapter(profileId: string): Adapter {
 
 const HISTORY_WINDOW_MS = 90 * 86_400_000;
 
-type HistoryValue = { t: string; n: number; vt: number[] };
 const lastVisitOf = (v: HistoryValue) => Math.max(0, ...v.vt);
 const SAME_VISIT_MS = 1;
 
-export const historyExpired = (key: string, value: unknown, now: number) =>
-  key.startsWith("h:") && lastVisitOf(value as HistoryValue) < now - HISTORY_WINDOW_MS;
+export function historyExpired(key: string, value: unknown, now: number) {
+  const v = key.startsWith("h:") ? historyValue(value) : null;
+  return !!v && lastVisitOf(v) < now - HISTORY_WINDOW_MS;
+}
 
 export function historyAdapter(profileId: string): Adapter {
   const ready = () => !!store().historyReady[profileId];
@@ -192,18 +190,21 @@ export function historyAdapter(profileId: string): Adapter {
           continue;
         }
         const local: HistoryValue = { t: e.title, n: e.visits, vt: e.visitTimes?.length ? e.visitTimes : [e.lastVisit] };
-        const known = base(key) as HistoryValue | undefined;
+        const known = historyValue(base(key));
         const edited = !known || local.vt.some((t) => !known.vt.some((k) => Math.abs(k - t) <= SAME_VISIT_MS));
         values.set(key, edited ? local : known);
       }
       const ignore = (key: string) => {
         if (older.has(key) || !isWebPageUrl(key.slice(2))) return true;
-        const known = base(key) as HistoryValue | undefined;
+        const known = historyValue(base(key));
         return !!known && (lastVisitOf(known) < since || lastVisitOf(known) <= floor);
       };
       return { values, ignore };
     },
-    editedAt: (v) => lastVisitOf(v as HistoryValue),
+    editedAt: (v) => {
+      const value = historyValue(v);
+      return value ? lastVisitOf(value) : undefined;
+    },
     apply: async (visible, changed) => {
       if (!ready()) return false;
       const since = Date.now() - HISTORY_WINDOW_MS;
@@ -214,7 +215,8 @@ export function historyAdapter(profileId: string): Adapter {
       for (const key of changed) {
         const url = key.slice(2);
         if (!isWebPageUrl(url)) continue;
-        const v = visible.get(key) as HistoryValue | undefined;
+        const v = historyValue(visible.get(key));
+        if (visible.has(key) && !v) continue;
         const old = byUrl.get(url);
         if (v) {
           const have = old?.visitTimes ?? [];
@@ -256,7 +258,6 @@ export function historyAdapter(profileId: string): Adapter {
   };
 }
 
-export type DeviceTabs = { n: string; tabs: { u: string; t: string }[] };
 const MAX_DEVICE_TABS = 30;
 
 export function deviceTabsAdapter(profileId: string, deviceId: string, name: () => string, retired = false): Adapter {
@@ -277,7 +278,6 @@ export function deviceTabsAdapter(profileId: string, deviceId: string, name: () 
   };
 }
 
-type PasswordValue = { o: string; u: string; s: string };
 const PASSWORD_READ_INTERVAL = 30_000;
 
 export type SealedPasswords = {
@@ -312,15 +312,19 @@ export function passwordsAdapter(profileId: string, forced: () => boolean, login
       created = new Map([...local].map(([k, v]) => [k, v.c]));
       return { values: new Map([...local].map(([k, { o, u, s }]) => [k, { o, u, s } satisfies PasswordValue])) };
     },
-    editedAt: (v) => created.get(keyOf((v as PasswordValue).o, (v as PasswordValue).u)) || undefined,
+    editedAt: (v) => {
+      const value = passwordValue(v);
+      return (value && created.get(keyOf(value.o, value.u))) || undefined;
+    },
     apply: async (visible, changed, base) => {
       const local = await read();
       if (!local) return false;
       let ok = true;
       for (const key of changed) {
-        const v = visible.get(key) as PasswordValue | undefined;
+        const v = passwordValue(visible.get(key));
+        if (visible.has(key) && !v) continue;
         const have = local.get(key);
-        const known = base(key) as PasswordValue | undefined;
+        const known = passwordValue(base(key));
         if (have && known?.s !== have.s) continue;
         if (v) {
           if (have?.s === v.s) continue;
@@ -329,10 +333,15 @@ export function passwordsAdapter(profileId: string, forced: () => boolean, login
           ok = (await deletePassword(profile(), have.o, have.u).catch(orWarn(false))) && ok;
         }
       }
+      const landed = (now: Map<string, { s: string }>, key: string) => {
+        if (!visible.has(key)) return !now.has(key);
+        const v = passwordValue(visible.get(key));
+        return !v || v.s === now.get(key)?.s;
+      };
       let settled = false;
       for (let i = 0; i < 20 && !settled; i++) {
         const now = await read();
-        settled = !!now && [...changed].every((k) => (visible.get(k) as PasswordValue | undefined)?.s === now.get(k)?.s);
+        settled = !!now && [...changed].every((k) => landed(now, k));
         if (!settled) await new Promise((r) => setTimeout(r, 250));
       }
       if (!settled) quietUntil = Date.now() + 30_000;

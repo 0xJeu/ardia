@@ -2,15 +2,15 @@ import { emptyScope, SyncNative, visible, type ScopeState } from "../../platform
 import { useBrowser } from "../browser/store";
 import { isIncognitoProfile } from "../browser/model";
 import { DEFAULT_PROFILE_ID } from "../settings/settings";
-import type { ShareRecord } from "./adapters";
+import { profileRecord, shareRecord } from "./records";
 import { legacyThemeOf, type ProfileRecord } from "./profileAdapters";
 import { APP_SCOPE, type SyncDoc } from "./syncDoc";
 import { pairTheme } from "./syncThemes";
 
-export const remoteProfileRecord = (doc: SyncDoc, syncId: string) => (doc.scopes[APP_SCOPE]?.records[`prof:${syncId}`]?.v ?? undefined) as ProfileRecord | undefined;
+export const remoteProfileRecord = (doc: SyncDoc, syncId: string) => profileRecord(doc.scopes[APP_SCOPE]?.records[`prof:${syncId}`]?.v) ?? undefined;
 
 const sharedDataOwner = (doc: SyncDoc, syncId: string): string | null => {
-  const owner = (doc.scopes[APP_SCOPE]?.records[`share:${syncId}`]?.v as ShareRecord | null | undefined)?.o;
+  const owner = shareRecord(doc.scopes[APP_SCOPE]?.records[`share:${syncId}`]?.v)?.o;
   return owner && owner !== syncId ? owner : null;
 };
 
@@ -48,7 +48,7 @@ export function appScopeOf(doc: SyncDoc, now = Date.now()): ScopeState {
 
 export function readyToPair(doc: SyncDoc, app: ScopeState, now = Date.now()): boolean {
   if (!doc.joining || pairingOverdue(doc, now)) return true;
-  const synced = [...visible(app, "prof:").values()] as ProfileRecord[];
+  const synced = [...visible(app, "prof:").values()].flatMap((v) => profileRecord(v) ?? []);
   if (synced.some((r) => r.d)) return true;
   const downloading = Object.values(app.pendingSince ?? {}).some((at) => now - at <= PAIRING_WAIT_MS);
   return synced.length > 0 && !downloading && !Object.keys(app.damaged).length;
@@ -56,7 +56,10 @@ export function readyToPair(doc: SyncDoc, app: ScopeState, now = Date.now()): bo
 
 export function linkProfiles(doc: SyncDoc, app: ScopeState) {
   const s = useBrowser.getState();
-  const remote = [...visible(app, "prof:")].map(([k, v]) => [k.slice(5), v as ProfileRecord] as const);
+  const remote = [...visible(app, "prof:")].flatMap(([k, v]) => {
+    const record = profileRecord(v);
+    return record ? [[k.slice(5), record] as const] : [];
+  });
   const taken = new Set(Object.values(doc.profiles).map((l) => l.syncId));
   for (const id of s.profileOrder) {
     const profile = s.profiles[id];
