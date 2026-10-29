@@ -4,7 +4,7 @@ import { confirm } from "../../platform/dialogs";
 import { create } from "zustand";
 import { useBrowser } from "../browser/store";
 import { pageOf, patchPage } from "../tabs/pageState";
-import { hideKeyedToast, showToast } from "../splits/actions";
+import { hideKeyedToast, showToast } from "../app/toasts";
 import { canSwitchEngine, chosenEngine, ENGINE_NAMES, siteOf, tabEngine, visitRecorder, type WebKitPage } from "./engines";
 import { engineProfile, isIncognitoProfile, navigationTo } from "../browser/model";
 import type { Tab } from "../browser/types";

@@ -11,7 +11,7 @@ import type { Tab } from "../browser/types";
 import { tabEngine } from "../engines/engines";
 import { useBrowser } from "../browser/store";
 import { openSettings } from "../settings/settingsWindows";
-import { showToast } from "../splits/actions";
+import { showToast } from "../app/toasts";
 import { setPopover } from "../tabs/pageState";
 
 export function siteOrigin(url: string): string | null {

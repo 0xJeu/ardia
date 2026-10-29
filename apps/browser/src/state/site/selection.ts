@@ -5,7 +5,7 @@ import { create } from "zustand";
 import { webviews } from "../../platform/webviews";
 import { useBrowser } from "../browser/store";
 import { defaultSearchEngine } from "../settings/settings";
-import { showToast } from "../splits/actions";
+import { showToast } from "../app/toasts";
 import { openModeFor } from "../bookmarks/actions";
 import { openFromPage } from "../tabs/openFromPage";
 

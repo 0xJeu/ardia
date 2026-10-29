@@ -6,7 +6,7 @@ globalThis.__DEV__ = false;
 const toasts = new Map();
 globalThis.engineTestToasts = toasts;
 const stubs = {
-  "../splits/actions": `export const showToast = (windowId, title, message, options) => globalThis.engineTestToasts.set(windowId, { title, ...options });
+  "../app/toasts": `export const showToast = (windowId, title, message, options) => globalThis.engineTestToasts.set(windowId, { title, ...options });
     export const hideKeyedToast = (windowId, key) => globalThis.engineTestToasts.get(windowId)?.key === key && globalThis.engineTestToasts.delete(windowId);`,
   "../tabs/tabPages": "export const wantsPage = (t) => !!t && !!(t.navigation || t.adoptId);",
 };

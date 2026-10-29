@@ -5,7 +5,8 @@ import { useBrowser, type BrowserState } from "../browser/store";
 import { activeTabId } from "../browser/model";
 import { peekModifierOf, splitLinkModifierOf, type PeekModifier, type SplitLinkModifier } from "../settings/settings";
 import { MAX_SPLIT_PANES, splitOf } from "../splits/splits";
-import { openSplitPane, showToast } from "../splits/actions";
+import { openSplitPane } from "../splits/actions";
+import { showToast } from "../app/toasts";
 import { isPeekTab, otherSitePeekTabIds, shownPageId } from "./peek";
 
 const store = () => useBrowser.getState();

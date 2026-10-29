@@ -1,6 +1,6 @@
 import { onSystemState, setBatterySaver, systemState, type SystemState } from "../../platform/performance";
 import { releaseProfile } from "../../platform/profiles";
-import { showToast } from "../splits/actions";
+import { showToast } from "../app/toasts";
 import { openSettings } from "../settings/settingsWindows";
 import { useBrowser, type BrowserState } from "../browser/store";
 import type { BatterySaverWhen } from "../settings/settings";

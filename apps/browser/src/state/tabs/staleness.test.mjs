@@ -14,7 +14,7 @@ const stubs = {
     export const systemState = async () => null;`,
   "../../platform/profiles": `export * from ${JSON.stringify(profiles)};
     export const releaseProfile = async () => {};`,
-  "../splits/actions": "export const showToast = () => {};",
+  "../app/toasts": "export const showToast = () => {};",
   "../settings/settingsWindows": "export const openSettings = () => {};",
   "../pages/urls": "export const isInternalTab = (t) => !/^https?:/.test(t.url ?? '');",
 };

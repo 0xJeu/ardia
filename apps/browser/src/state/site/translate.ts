@@ -5,7 +5,7 @@ import { webviews } from "../../platform/webviews";
 import { useBrowser } from "../browser/store";
 import { changedIds } from "../browser/changes";
 import { incognitoOriginal, isIncognitoProfile } from "../browser/model";
-import { hideKeyedToast, showToast } from "../splits/actions";
+import { hideKeyedToast, showToast } from "../app/toasts";
 import { translatorCall, type Passage } from "./pageTranslator";
 import { errorText } from "../../lib/errors";
 

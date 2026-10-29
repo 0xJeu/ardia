@@ -52,8 +52,8 @@ export function startDevHarness() {
     get peek(): typeof import("../../state/peek/actions") {
       return require("../../state/peek/actions");
     },
-    get toasts(): typeof import("../../state/splits/actions").useToasts {
-      return require("../../state/splits/actions").useToasts;
+    get toasts(): typeof import("../../state/app/toasts").useToasts {
+      return require("../../state/app/toasts").useToasts;
     },
     get extensions(): typeof import("../../state/extensions/actions") {
       return require("../../state/extensions/actions");
