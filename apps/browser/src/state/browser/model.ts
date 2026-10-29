@@ -189,6 +189,9 @@ export function tabLabel(t: Pick<Tab, "url" | "title" | "customTitle">): string 
   }
 }
 
+const urlLabel = (url: string) => url.replace(/^[a-z][\w+.-]*:\/\//i, "").replace(/^www\./, "").replace(/\/$/, "");
+export const tabTitle = (t: Pick<Tab, "customTitle" | "title" | "url">) => t.customTitle || t.title || (t.url && urlLabel(t.url)) || "New Tab";
+
 export function findLast<T>(list: readonly T[], test: (item: T) => boolean): T | undefined {
   for (let i = list.length - 1; i >= 0; i--) if (test(list[i]!)) return list[i];
   return undefined;

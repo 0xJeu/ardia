@@ -1,3 +1,4 @@
+import { tabTitle } from "../../state/browser/model";
 import { recentTabSuggestions, type Suggestion } from "@ardia/core";
 import { useMemo } from "react";
 import { useSettings, useTab, useWindow } from "../../state/browser/hooks";
@@ -6,7 +7,6 @@ import { usePeeks } from "../../state/peek/hooks";
 import { useTabs } from "../../state/tabs/hooks";
 import { openTabsByUse } from "../../state/tabs/tabShare";
 import type { HistoryEntry } from "../../state/browser/types";
-import { tabTitle } from "../../state/sidebar/actions";
 
 const NO_HISTORY: HistoryEntry[] = [];
 const RECENT = 4;

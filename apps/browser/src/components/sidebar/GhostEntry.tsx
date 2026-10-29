@@ -1,3 +1,4 @@
+import { tabTitle } from "../../state/browser/model";
 import { Image, Text, View } from "react-native";
 import { knownFaviconTheme, resolveFavicon } from "../../state/favicons/favicons";
 import { FadeLabel, font, radius, Symbol, weight } from "../ui";
@@ -7,7 +8,6 @@ import type { GroupColor } from "../../state/browser/types";
 import { groupLabel } from "../../state/pins/organize";
 import { splitRowPanes } from "../../state/splits/splits";
 import { isSilenced } from "../../state/tabs/mute";
-import { tabTitle } from "../../state/sidebar/actions";
 import { groupEntries, keptEntry } from "../../state/sidebar/entries";
 import { GROUP_BORDER, GROUP_INDENT, GROUP_PAD, GROUP_RADIUS } from "./geometry";
 import { headGap } from "../../state/sidebar/geometry";

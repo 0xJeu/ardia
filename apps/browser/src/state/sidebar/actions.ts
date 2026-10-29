@@ -6,7 +6,7 @@ import { useBrowser } from "../browser/store";
 import { webviews } from "../../platform/webviews";
 import { focusHeroBar } from "../omnibox/barState";
 import { ancestorIds } from "../groups/groups";
-import { activeTabId, bookmarkProfileId, inPinnedContainer, pinSection, tabLayoutOf, viewTabIds } from "../browser/model";
+import { activeTabId, bookmarkProfileId, inPinnedContainer, pinSection, tabLayoutOf, tabTitle, viewTabIds } from "../browser/model";
 import type { ClickMods } from "../drag/drops";
 import { groupLabel, groupOf, selectedTabIds } from "../pins/organize";
 import type { Tab } from "../browser/types";
@@ -106,9 +106,6 @@ export function newGroupWithSelection(windowId: string, ids = selectedTabIds(sto
   if (groupId && sidebarShows(windowId)) void startRename(windowId, { kind: "group", id: groupId });
   return groupId;
 }
-
-const urlLabel = (url: string) => url.replace(/^[a-z][\w+.-]*:\/\//i, "").replace(/^www\./, "").replace(/\/$/, "");
-export const tabTitle = (t: Pick<Tab, "customTitle" | "title" | "url">) => t.customTitle || t.title || (t.url && urlLabel(t.url)) || "New Tab";
 
 export function copyUrls(ids: string[], markdown: boolean) {
   const tabs = ids.map((id) => store().tabs[id]).filter((t): t is Tab => !!t?.url);

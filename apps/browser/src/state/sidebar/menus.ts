@@ -2,9 +2,9 @@ import { showMenu } from "../../platform/menus";
 import { switchToTab } from "../browser/actions";
 import { menuShortcut } from "../commands/commandShortcuts";
 import { useBrowser } from "../browser/store";
-import { plural, tabLabel, viewTabIds } from "../browser/model";
+import { plural, tabTitle, viewTabIds } from "../browser/model";
 import { cleanedTabsFor, keptDeletedGroups } from "../pins/organize";
-import { allMuted, muteAll, tabTitle } from "./actions";
+import { allMuted, muteAll } from "./actions";
 import { openSyncedTab, syncedDevicesMenuItem } from "../sync/menu";
 import { setSidebarUi } from "./sidebarUi";
 import { closeAllTabs } from "./clearTabs";
@@ -26,7 +26,7 @@ export async function openOverflowMenu(windowId: string) {
   const closed = [
     ...s.closedTabs
       .filter((c) => c.tab.profileId === w.profileId)
-      .map((c) => ({ id: `restore:${c.id}`, title: c.tab.customTitle || c.tab.title || tabLabel(c.tab), symbol: "clock.arrow.circlepath", at: c.closedAt })),
+      .map((c) => ({ id: `restore:${c.id}`, title: tabTitle(c.tab), symbol: "clock.arrow.circlepath", at: c.closedAt })),
     ...s.closedGroups.map((c) => ({ id: `restore:${c.id}`, title: `${c.group.name} (${plural(c.tabs.length, "Tab")})`, symbol: "rectangle.stack", at: c.closedAt })),
   ]
     .sort((a, b) => b.at - a.at)
@@ -58,7 +58,7 @@ export async function openOverflowMenu(windowId: string) {
       enabled: cleaned.length > 0,
       children: cleaned.length
         ? [
-            ...cleaned.map((c) => ({ id: `cleaned:${c.id}`, title: c.tab.customTitle || c.tab.title || tabLabel(c.tab) })),
+            ...cleaned.map((c) => ({ id: `cleaned:${c.id}`, title: tabTitle(c.tab) })),
             sep,
             { id: "restoreAll", title: `Restore ${plural(allCleaned.length, "Tab")}` },
           ]

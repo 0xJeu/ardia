@@ -1,6 +1,6 @@
 import { useShallow } from "zustand/react/shallow";
 import { useBrowser } from "../browser/store";
-import { activeTabId, viewTabIds } from "../browser/model";
+import { activeTabId, tabTitle, viewTabIds } from "../browser/model";
 import { liveTabPlace } from "../live/rows";
 import type { Tab } from "../browser/types";
 import { cleanedTabsFor, groupLabel } from "../pins/organize";
@@ -9,7 +9,6 @@ import { folderIn } from "../pins/tileFolders";
 import { useStoreWhile } from "../tabs/tabWatch";
 import { splitOf, splitRowPanes } from "../splits/splits";
 import { downloadsIn } from "../windows/ui";
-import { tabTitle } from "./actions";
 import { groupEntries, keptEntry, sidebarEntries } from "./entries";
 import { groupTabIds } from "./groupPanelRows";
 import { capture, type Capture } from "./listCapture";

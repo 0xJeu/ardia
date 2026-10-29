@@ -1,7 +1,7 @@
 import type { StateCreator } from "zustand";
 import type { BrowserState } from "../browser/store";
 import { nestGroups, syncGroupOrder, withGroupsPlaced, withParent } from "../groups/groups";
-import { activeTabId, bookmarkProfileId, inPinnedContainer, isIncognitoProfile, snapshotTab, viewTabIds, without } from "../browser/model";
+import { activeTabId, bookmarkProfileId, inPinnedContainer, isIncognitoProfile, snapshotTab, tabTitle, viewTabIds, without } from "../browser/model";
 import { activated, apply, removeTabs, withNewTab } from "../tabs/tabs";
 import { clickedSelection, dropping, type ClickMods, type Drop } from "../drag/drops";
 import type { ClosedGroup, ClosedTab, Tab, TabGroup } from "../browser/types";
@@ -261,7 +261,7 @@ export const createOrganizeSlice: StateCreator<BrowserState, [], [], OrganizeSli
           continue;
         }
         const t = s.tabs[id];
-        if (t?.url) get().addBookmark({ profileId, url: t.url, title: t.customTitle || t.title || t.url, favicon: t.favicon, parentId: folder });
+        if (t?.url) get().addBookmark({ profileId, url: t.url, title: tabTitle(t), favicon: t.favicon, parentId: folder });
       }
     };
     file(g);
