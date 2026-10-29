@@ -58,6 +58,7 @@ import {
 import { runPeekCommand } from "../peek/actions";
 import { peekTabId } from "../peek/peek";
 import { expectFocus, findFocus } from "../focus/focusClaims";
+import { isWebPageUrl } from "../../lib/url";
 
 export function runCommand({ command, arg, windowId: requested }: CommandEvent) {
   const s = useBrowser.getState();
@@ -234,7 +235,7 @@ export function runCommand({ command, arg, windowId: requested }: CommandEvent) 
     case "javaScriptConsole":
       return void web?.showDevTools("console");
     case "viewSource":
-      if (!page || !web || !/^(https?|file):/.test(page.url)) return;
+      if (!page || !web || !isWebPageUrl(page.url)) return;
       return void s.newTab(windowId, { url: `view-source:${page.url}`, openerId: page.id, profileId: page.profileId });
     case "back":
       return tabId ? goBack(tabId) : undefined;

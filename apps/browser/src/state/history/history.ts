@@ -3,6 +3,7 @@ import type { StateCreator } from "zustand";
 import type { BrowserState } from "../browser/store";
 import { engineProfile, isIncognitoProfile } from "../browser/model";
 import type { HistoryEntry } from "../browser/types";
+import { isWebPageUrl } from "../../lib/url";
 
 export type HistorySlice = {
   history: Record<string, HistoryEntry[]>;
@@ -40,7 +41,7 @@ export const createHistorySlice: StateCreator<BrowserState, [], [], HistorySlice
 
   importHistory(profileId, entries) {
     if (isIncognitoProfile(profileId)) return 0;
-    const rows = entries.filter((e) => /^(https?|file):/.test(e.url));
+    const rows = entries.filter((e) => isWebPageUrl(e.url));
     let added = 0;
     set((s) => {
       const byUrl = new Map((s.history[profileId] ?? []).map((h) => [h.url, h]));

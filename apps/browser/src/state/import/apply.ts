@@ -27,6 +27,7 @@ import { newProfileLiveFolder } from "../live/engine";
 import { live } from "../live/store";
 import type { LiveSourceId } from "../live/types";
 import { isWebPageUrl } from "../../lib/url";
+import { isWebPageUrl } from "../../lib/url";
 
 export type { BrowserProfile, BrowserSource, DiaTabsResult, ImportedExtension, ImportKind, ImportResult, SpaceSummary } from "../../platform/importModule";
 
@@ -157,7 +158,7 @@ export function importTabs(
   const pinned = pinnedAgainst === "tiles" ? tilePages(s, profileId) : pinnedPages(s, profileId);
   const open = openPages(s, profileId);
   const usable = tabs.filter((t) => {
-    if (!/^(https?|file):/i.test(t.url)) return false;
+    if (!isWebPageUrl(t.url)) return false;
     const seen = t.pinned ? pinned : open;
     const key = pageKey(t.url);
     if (seen.has(key)) return false;

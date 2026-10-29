@@ -10,6 +10,7 @@ import { isPeekTab } from "../peek/peek";
 import { fromSync } from "../pins/pinOrderChoices";
 import { fromLegacy } from "../../lib/legacy";
 import type { BookmarkNode, HistoryEntry } from "../browser/types";
+import { isWebPageUrl } from "../../lib/url";
 
 const store = () => useBrowser.getState();
 
@@ -167,7 +168,6 @@ const HISTORY_WINDOW_MS = 90 * 86_400_000;
 
 type HistoryValue = { t: string; n: number; vt: number[] };
 const lastVisitOf = (v: HistoryValue) => Math.max(0, ...v.vt);
-const keptInHistory = (url: string) => /^(https?|file):/i.test(url);
 const SAME_VISIT_MS = 1;
 
 export const historyExpired = (key: string, value: unknown, now: number) =>
@@ -185,7 +185,7 @@ export function historyAdapter(profileId: string): Adapter {
       const view = store().history[profileId] ?? [];
       const floor = store().historyFloor[profileId] ?? -Infinity;
       for (const e of view) {
-        if (!keptInHistory(e.url)) continue;
+        if (!isWebPageUrl(e.url)) continue;
         const key = `h:${e.url}`;
         if (e.lastVisit < since) {
           older.add(key);
@@ -197,7 +197,7 @@ export function historyAdapter(profileId: string): Adapter {
         values.set(key, edited ? local : known);
       }
       const ignore = (key: string) => {
-        if (older.has(key) || !keptInHistory(key.slice(2))) return true;
+        if (older.has(key) || !isWebPageUrl(key.slice(2))) return true;
         const known = base(key) as HistoryValue | undefined;
         return !!known && (lastVisitOf(known) < since || lastVisitOf(known) <= floor);
       };
@@ -213,7 +213,7 @@ export function historyAdapter(profileId: string): Adapter {
       const updates = new Map<string, HistoryEntry | null>();
       for (const key of changed) {
         const url = key.slice(2);
-        if (!keptInHistory(url)) continue;
+        if (!isWebPageUrl(url)) continue;
         const v = visible.get(key) as HistoryValue | undefined;
         const old = byUrl.get(url);
         if (v) {
@@ -267,7 +267,7 @@ export function deviceTabsAdapter(profileId: string, deviceId: string, name: () 
       if (retired) return { values: new Map(), ignore: (k) => k !== key };
       const s = store();
       const open = Object.values(s.tabs)
-        .filter((t) => t.profileId === profileId && !t.pinned && !t.unloaded && /^(https?|file):/.test(t.url) && !s.windows[t.windowId]?.incognito && !isPeekTab(s, t.id))
+        .filter((t) => t.profileId === profileId && !t.pinned && !t.unloaded && isWebPageUrl(t.url) && !s.windows[t.windowId]?.incognito && !isPeekTab(s, t.id))
         .sort((a, z) => z.lastActiveAt - a.lastActiveAt)
         .slice(0, MAX_DEVICE_TABS)
         .map((t) => ({ u: t.url, t: t.customTitle || t.title }));

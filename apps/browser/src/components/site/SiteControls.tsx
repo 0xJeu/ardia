@@ -38,6 +38,7 @@ import { CertificateDetails, ConnectionChip, ConnectionRow } from "./SiteConnect
 import { SiteExtensions } from "./SiteExtensions";
 import { TranslateRows } from "./TranslateControls";
 import { ZoomStepper } from "./ZoomControls";
+import { isWebPageUrl } from "../../lib/url";
 
 type Permission = { type: SiteSettingType; title: string; icon: string; badge: string; choices: SiteSettingValue[] };
 
@@ -187,7 +188,7 @@ function SiteControlsPanel({
   };
   const toggle = (section: Exclude<Expanded, null>) => setExpanded((e) => (e === section ? null : section));
 
-  const findable = /^(https?|file):/i.test(url);
+  const findable = isWebPageUrl(url);
   const castTile = !video && !!origin;
   const tiles = [
     canShare(tab) ? <ActionTile key="share" ref={shareTile} icon="square.and.arrow.up" label="Share…" onPress={share} /> : null,

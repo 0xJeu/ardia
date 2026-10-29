@@ -5,6 +5,7 @@ import { folderLinks } from "./bookmarks";
 import { storeAction, useBrowser } from "../browser/store";
 import { activeTabId, bookmarkProfileId, resolveWindowId, tabTitle, viewTabIds } from "../browser/model";
 import { originalProfile } from "../windows/small";
+import { isWebPageUrl } from "../../lib/url";
 
 type OpenMode = "current" | "background" | "foreground" | "window" | "incognito" | "split";
 
@@ -111,7 +112,7 @@ export function bookmarkAllTabs(windowId: string | null | undefined) {
   if (!id) return;
   const tabs = viewTabIds(s, id)
     .map((t) => s.tabs[t]!)
-    .filter((t) => /^(https?|file):/.test(t.url))
+    .filter((t) => isWebPageUrl(t.url))
     .map((t) => ({ url: t.url, title: tabTitle(t) }));
   if (!tabs.length) return;
   useBookmarkDialog.setState({ open: { kind: "allTabs", windowId: id, profileId: bookmarkProfileId(s, s.windows[id]), tabs } });

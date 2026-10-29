@@ -7,6 +7,7 @@ import { addFolderToSidebar } from "./bookmarkGroups";
 import { insertTarget, isInside, linkTitle, moveTarget, sameSpot, type DropSpot } from "./barDrop";
 import { closeFolderMenus, closeSprungMenus, holdMenuPanel, panelKey, useFolderMenus } from "./folderMenus";
 import { onAppEvent, setDragEscapeCapture } from "../drag/dragNative";
+import { isWebPageUrl } from "../../lib/url";
 
 export type BarDragSource = { kind: "bookmark"; id: string; panel: string | null } | { kind: "tabs"; tabIds: string[] } | { kind: "links" };
 
@@ -36,7 +37,6 @@ export const barDragging = () => !!useBarDrag.getState().source;
 
 const SPRING_OPEN_MS = 550;
 const LINK_LEAVE_MS = 300;
-const WEB_LINK = /^(https?|file):/i;
 
 const zones = new Map<string, DropZone>();
 let spring: { key: string; timer: ReturnType<typeof setTimeout> } | null = null;
@@ -153,7 +153,7 @@ export function dropLinksAt(windowId: string, x: number, y: number, links: { url
   const hit = hitAt(windowId, x, y, null);
   finish();
   closeSprungMenus();
-  const usable = links.filter((l) => WEB_LINK.test(l.url));
+  const usable = links.filter((l) => isWebPageUrl(l.url));
   return !!hit?.spot && bookmarkLinks(windowId, hit.spot, usable.map((l) => ({ url: l.url, title: linkTitle(l.url, l.text) })));
 }
 
@@ -164,7 +164,7 @@ function dropTabs(tabIds: string[], windowId: string, x: number, y: number): boo
   const tabs = useBrowser.getState().tabs;
   const links = tabIds
     .map((id) => tabs[id])
-    .filter((t) => !!t && WEB_LINK.test(t.url))
+    .filter((t) => !!t && isWebPageUrl(t.url))
     .map((t) => ({ url: t!.url, title: t!.customTitle || t!.title || linkTitle(t!.url, null), favicon: t!.favicon }));
   const done = bookmarkLinks(windowId, hit.spot, links);
   closeSprungMenus();

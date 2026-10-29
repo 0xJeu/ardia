@@ -1,3 +1,5 @@
+export const isWebPageUrl = (url: string) => /^(https?|file):/i.test(url);
+
 export function hostOf(url: string): string {
   try {
     return new URL(url).hostname.replace(/^www\./, "");

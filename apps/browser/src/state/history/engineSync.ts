@@ -5,6 +5,7 @@ import { afterFirstWindow } from "../../lib/afterFirstWindow";
 import { MAX_HISTORY, MAX_VISIT_TIMES } from "./history";
 import { engineProfile, isIncognitoProfile } from "../browser/model";
 import type { HistoryEntry } from "../browser/types";
+import { isWebPageUrl } from "../../lib/url";
 
 const LEGACY_FILE = "history.json";
 const LEGACY_TOLERANCE_MS = 60_000;
@@ -14,7 +15,6 @@ const LEGACY_KEPT_MS = 15_000;
 
 const store = () => useBrowser.getState();
 
-const shownInHistory = (url: string) => /^(https?|file):/i.test(url);
 
 const toEntry = (e: EngineHistoryEntry): HistoryEntry => ({
   url: e.url,
@@ -63,7 +63,7 @@ const byLastVisit = (a: HistoryEntry, b: HistoryEntry) => b.lastVisit - a.lastVi
 export function applyHistoryChange(list: HistoryEntry[], change: Exclude<HistoryChange, { kind: "deleted"; all: true }>): HistoryEntry[] {
   switch (change.kind) {
     case "visit": {
-      if (!shownInHistory(change.url)) return list;
+      if (!isWebPageUrl(change.url)) return list;
       const oldAt = list.findIndex((h) => h.url === change.url);
       const old = oldAt < 0 ? undefined : list[oldAt];
       if (old?.visitTimes?.includes(change.at)) return list;
@@ -124,7 +124,7 @@ function load(engine: string): Promise<void> {
         await watchHistory(engine);
         const read = await queryHistory(engine, MAX_HISTORY, MAX_VISIT_TIMES);
         const floor = read.length >= MAX_HISTORY ? Math.min(...read.map((e) => e.visitTimes.at(-1) ?? 0)) : -Infinity;
-        let list = read.filter((e) => shownInHistory(e.url)).map(toEntry).sort(byLastVisit);
+        let list = read.filter((e) => isWebPageUrl(e.url)).map(toEntry).sort(byLastVisit);
         for (const change of state.queued) if (!(change.kind === "deleted" && change.all)) list = applyHistoryChange(list, change);
         if (state.queued.some((c) => c.kind === "deleted" && c.all)) state.again = true;
         setView(engine, list, floor);

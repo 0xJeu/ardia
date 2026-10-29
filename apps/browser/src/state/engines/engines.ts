@@ -1,6 +1,7 @@
 import type { PageEngine } from "../../platform/tabs";
 import type { BrowserState } from "../browser/store";
 import type { Tab } from "../browser/types";
+import { isWebPageUrl } from "../../lib/url";
 
 export type { PageEngine } from "../../platform/tabs";
 
@@ -21,7 +22,7 @@ export function siteOf(url: string | undefined | null): string | null {
   }
 }
 
-export const canSwitchEngine = (url: string | undefined | null) => !!url && /^(https?|file):/i.test(url);
+export const canSwitchEngine = (url: string | undefined | null) => !!url && isWebPageUrl(url);
 export const chromiumOnly = (url: string | undefined | null) => !!url && /^(ardia|chrome|chrome-extension|chrome-untrusted|devtools|view-source):/i.test(url);
 
 export const defaultEngine = (s: Pick<BrowserState, "settings">): PageEngine => (s.settings.pageEngine === "webkit" ? "webkit" : "chromium");
