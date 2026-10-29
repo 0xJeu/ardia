@@ -7,7 +7,7 @@ import { calendarConnected, connectCalendar, setCalendarHidden, useCalendar } fr
 import { deleteLiveFolder, manualRefresh, newLiveFolder, openLiveItem, refreshFolder, statusText } from "../live/engine";
 import { ALERT_LEADS, nowBadgeEvent } from "../live/meetings";
 import { SOURCES } from "../live/sources";
-import { dismissNowBadge, hideItems, live, markRead, setLive, updateCalendarSettings, updateFolder } from "../live/store";
+import { dismissNowBadge, hideItems, live, markRead, markUnread, updateCalendarSettings, updateFolder } from "../live/store";
 import type { LiveItem, LiveSourceId } from "../live/types";
 import { useBrowser } from "../browser/store";
 import { openSettings } from "../settings/settingsWindows";
@@ -153,7 +153,7 @@ export async function openLiveItemMenu(windowId: string, folderId: string, item:
   else if (choice === "copyMd") copyText(markdownLink(item.title, item.url));
   else if (choice === "unread") {
     if (unread) markRead(folderId, [item.id]);
-    else setLive((s) => ({ unread: { ...s.unread, [folderId]: [...(s.unread[folderId] ?? []), item.id] } }));
+    else markUnread(folderId, item.id);
   } else if (choice === "hide") hideItems(folderId, [item]);
   else if (choice === "close" && tabId) void closeTab(tabId);
 }
