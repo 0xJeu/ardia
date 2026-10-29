@@ -25,8 +25,6 @@ export {
   applyExtensionsSync,
   type ExtensionsSyncApply,
   extensionSearchEngines,
-  permissionWarnings,
-  webStoreExtensionId,
   type InstalledExtension,
   type ActionState,
   type ExtensionPackage,

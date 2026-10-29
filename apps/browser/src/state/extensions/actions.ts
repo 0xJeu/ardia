@@ -8,12 +8,12 @@ import {
   resolveExtensionInstallPrompt,
   setExtensionEnabled,
   uninstallExtension,
-  webStoreExtensionId,
   type ActionState,
   type ExtensionInstallPrompt,
   type ExtensionPackage,
   type InstalledExtension,
 } from "../../platform/extensions";
+import { webStoreExtensionId } from "@ardia/core";
 import { confirm } from "../../platform/dialogs";
 import { showMenu, type MenuItem } from "../../platform/menus";
 import { menuSections } from "../app/menuSections";
@@ -27,7 +27,7 @@ import { closeSidePanelsOf, toggleSidePanel } from "./sidePanels";
 import { extensionProfile, extensionsProfileId, pageProfile, shownIn, useExtensions, windowExtensions, readyTabOf, type Anchor } from "./store";
 import { errorText } from "../../lib/errors";
 
-export { permissionWarnings, reloadExtension } from "../../platform/extensions";
+export { reloadExtension } from "../../platform/extensions";
 
 export * from "./sidePanels";
 export * from "./store";

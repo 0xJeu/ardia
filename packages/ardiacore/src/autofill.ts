@@ -46,15 +46,3 @@ export const deleteCard = async (profile: string, id: string) => {
   await call("autofill.remove", { profile, id });
 };
 export const revealCardNumber = async (profile: string, id: string) => (await call("autofill.cardNumber", { profile, id })).number ?? null;
-
-const NETWORK_NAMES: Record<CardNetwork, string> = {
-  visa: "Visa",
-  mastercard: "Mastercard",
-  amex: "American Express",
-  discover: "Discover",
-  diners: "Diners Club",
-  jcb: "JCB",
-  unionpay: "UnionPay",
-  card: "Card",
-};
-export const cardNetworkName = (network: CardNetwork) => NETWORK_NAMES[network] ?? "Card";

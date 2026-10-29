@@ -8,9 +8,9 @@ import {
   onExtensionTabsRequest,
   resolveExtensionInstallPrompt,
   watchExtensionActions,
-  webStoreExtensionId,
   type TabsRequest,
 } from "../../platform/extensions";
+import { webStoreExtensionId } from "@ardia/core";
 import { AppState } from "react-native";
 import { openWindow } from "../browser/actions";
 import { webviews } from "../../platform/webviews";
