@@ -7,7 +7,7 @@ public class AppModule: Module {
   public func definition() -> ModuleDefinition {
     Name("ArdiaApp")
     Constant("apiVersion") { () -> Int in 27 }
-    Events("onNotificationResponse", "onScriptCommand")
+    Events(ShellEvents.Channel.notificationResponse.rawValue, ShellEvents.Channel.scriptCommand.rawValue)
 
     OnCreate {
       DispatchQueue.main.async {
@@ -17,28 +17,16 @@ public class AppModule: Module {
       }
     }
 
-    OnStartObserving("onNotificationResponse") {
-      DispatchQueue.main.async { [weak self] in
-        NotificationHub.shared.onResponse = { id, action, info in
-          self?.sendEvent("onNotificationResponse", [
-            "id": id, "action": action, "tabId": info["tabId"] as Any, "windowId": info["windowId"] as Any, "data": info["data"] as Any,
-          ])
-        }
-        NotificationHub.shared.flushPending()
-      }
-    }
+    OnStartObserving(ShellEvents.Channel.notificationResponse.rawValue) { ShellEvents.attach(.notificationResponse, to: self) }
+    OnStartObserving(ShellEvents.Channel.scriptCommand.rawValue) { ShellEvents.attach(.scriptCommand, to: self) }
 
-    OnStartObserving("onScriptCommand") {
-      DispatchQueue.main.async { [weak self] in
-        ShellScripting.send = { body in self?.sendEvent("onScriptCommand", body) }
-      }
-    }
+    OnDestroy { ShellEvents.detach(self) }
 
     AsyncFunction("updaterState") { () -> [String: Any] in AppUpdater.shared.state }.runOnQueue(.main)
     AsyncFunction("checkForUpdates") { AppUpdater.shared.checkForUpdates(nil) }.runOnQueue(.main)
     AsyncFunction("setAutomaticUpdateChecks") { (on: Bool) in AppUpdater.shared.setAutomaticChecks(on) }.runOnQueue(.main)
     AsyncFunction("setAutomaticUpdateDownloads") { (on: Bool) in AppUpdater.shared.setAutomaticDownloads(on) }.runOnQueue(.main)
-    AsyncFunction("setUpdateChannel") { (channel: String) in AppUpdater.shared.setChannel(channel) }.runOnQueue(.main)
+    AsyncFunction("setUpdateChannel") { (channel: UpdateChannel) in AppUpdater.shared.setChannel(channel) }.runOnQueue(.main)
 
     AsyncFunction("setWindowActivity") { (windowId: String, url: String?, title: String?) in
       Handoff.setActivity(windowId: windowId, url: url, title: title)
@@ -148,7 +136,7 @@ public class AppModule: Module {
 
     AsyncFunction("devMenuCommand") { (command: String, arg: String?) in
       #if DEBUG
-      MenuTarget.shared.handler?(command, arg, WindowManager.shared.keyWindowId)
+      MenuTarget.shared.dispatch(command, arg, windowId: WindowManager.shared.keyWindowId)
       #endif
     }.runOnQueue(.main)
 

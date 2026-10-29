@@ -7,7 +7,7 @@ import { windowOpens } from "./windowOpenOrder";
 export type LightsCenter = [number, number] | null;
 
 export type WindowPort = {
-  open(id: string, options: OpenWindowOptions & { claim?: string }, lightsCenter: LightsCenter): void;
+  open(id: string, options: OpenWindowOptions, lightsCenter: LightsCenter): void;
   close(id: string): void;
   setTitle(id: string, title: string): void;
   windowIds(): Promise<string[]>;
