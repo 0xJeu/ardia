@@ -60,4 +60,4 @@ export const onTabStripTransaction = (listener: (tx: TabStripTransaction) => voi
 export const tabStrips = (): Promise<TabStripTransaction> => call("tabs.strips");
 
 export const lastTabClosesWindow = (): Promise<boolean> =>
-  call("tabs.lastTabPolicy").then((r) => r.closesWindow !== false);
+  call("tabs.lastTabPolicy").then((r) => r.closesWindow);

@@ -166,6 +166,8 @@ function remember(key: string, page: string, src: string, uri: string) {
 
 export type KnownFavicon = { page: string; icon: string; png: string };
 
+const PNG_DATA_URI = "data:image/png;base64,";
+
 export function adoptFavicons(profileId: string, known: KnownFavicon[]) {
   if (isIncognitoProfile(profileId) || !known.length) return;
   const key = cacheKey(profileId);
@@ -178,7 +180,7 @@ export function adoptFavicons(profileId: string, known: KnownFavicon[]) {
     if (startsOver) touchAll();
     const pages: Record<string, string | null> = startsOver ? {} : { ...icons.pages };
     for (const [page, f] of fresh) {
-      pages[page] = `data:image/png;base64,${f.png}`;
+      pages[page] = `${PNG_DATA_URI}${f.png}`;
       touch(page);
     }
     return { ...icons, pages };
@@ -195,8 +197,11 @@ function fetchMissing(profileId: string, url: string, src: string) {
   if (isIncognitoProfile(profileId) || !/^https?:/i.test(src)) return;
   const id = `${key}|${src}`;
   if (inflight.has(id) || failedFetches.has(id)) return;
-  const pending = fetchFavicon(src, key, pageKey(url))
-    .then((image) => image?.uri ?? null)
+  const pending = fetchFavicon(src, key)
+    .then((image) => {
+      if (image?.uri.startsWith(PNG_DATA_URI)) void storeFavicon(key, pageKey(url), src, image.uri.slice(PNG_DATA_URI.length)).catch(() => null);
+      return image?.uri ?? null;
+    })
     .catch(() => null);
   inflight.set(id, pending);
   void pending.then((uri) => {

@@ -39,16 +39,23 @@ export function domainModule<Module = DomainModule>(domain: string): Module {
 
 const domainOf = (name: string) => name.slice(0, name.indexOf("."));
 
-export async function call<N extends CallName>(name: N, ...[args]: {} extends CallArgs<N> ? [CallArgs<N>?] : [CallArgs<N>]): Promise<CallResult<N>> {
-  const { profile = "", ...rest } = (args ?? {}) as { profile?: string };
-  if (!name.includes(".")) throw new ArdiaError("ERR_UNKNOWN_CALL", `${name} isn't a call`);
-  let reply: string;
+export async function decodeReply<T>(reply: Promise<string>): Promise<T> {
+  let json: string;
   try {
-    reply = await domainModule(domainOf(name)).call(name.slice(name.indexOf(".") + 1), profile, JSON.stringify(rest));
+    json = await reply;
   } catch (error) {
     throw ardiaError(error);
   }
-  return JSON.parse(reply) as CallResult<N>;
+  try {
+    return JSON.parse(json) as T;
+  } catch {
+    throw new ArdiaError("ERR_BAD_REPLY", "the reply isn't JSON");
+  }
+}
+
+export async function call<N extends CallName>(name: N, ...[args]: {} extends CallArgs<N> ? [CallArgs<N>?] : [CallArgs<N>]): Promise<CallResult<N>> {
+  const { profile = "", ...rest } = (args ?? {}) as { profile?: string };
+  return decodeReply(domainModule(domainOf(name)).call(name.slice(name.indexOf(".") + 1), profile, JSON.stringify(rest)));
 }
 
 type Listener = (data: unknown) => void;
