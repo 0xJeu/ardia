@@ -7,6 +7,7 @@ import { changedIds } from "../browser/changes";
 import { incognitoOriginal, isIncognitoProfile } from "../browser/model";
 import { hideKeyedToast, showToast } from "../splits/actions";
 import { translatorCall, type Passage } from "./pageTranslator";
+import { errorText } from "../../lib/errors";
 
 export { translation } from "../../platform/text";
 
@@ -191,7 +192,7 @@ export async function translatePage(tabId: string, target = defaultTarget()) {
     void follow(tabId, token);
   } catch (error) {
     await revertPage(tabId, { quiet: true });
-    const reason = error instanceof Error ? error.message : String(error);
+    const reason = errorText(error);
     toast(tabId, `Translation error (${reason.replace(/[.\s]+$/, "")})`);
   }
 }

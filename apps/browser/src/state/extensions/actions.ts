@@ -25,6 +25,7 @@ import { shownPageId } from "../peek/peek";
 import { goToSettingsPane, openSettings, replaceSettingsPlace, settingsBack, useSettingsNav } from "../settings/settingsWindows";
 import { closeSidePanelsOf, toggleSidePanel } from "./sidePanels";
 import { extensionProfile, extensionsProfileId, pageProfile, shownIn, useExtensions, windowExtensions, readyTabOf, type Anchor } from "./store";
+import { errorText } from "../../lib/errors";
 
 export { permissionWarnings, reloadExtension } from "../../platform/extensions";
 
@@ -92,7 +93,7 @@ export async function loadUnpacked(windowId: string, profile = extensionProfile(
     const pkg = await inspectUnpackedExtension(path);
     useExtensions.setState({ install: { windowId, profile, source: "unpacked", status: "ready", pkg } });
   } catch (error) {
-    useExtensions.setState({ install: { windowId, profile, source: "unpacked", status: "error", error: message(error) } });
+    useExtensions.setState({ install: { windowId, profile, source: "unpacked", status: "error", error: errorText(error) } });
   }
   return true;
 }
@@ -135,7 +136,7 @@ export async function confirmInstall() {
     useExtensions.setState({ install: null });
     await refreshExtensions(request.profile);
   } catch (error) {
-    useExtensions.setState({ install: { ...request, status: "error", error: message(error) } });
+    useExtensions.setState({ install: { ...request, status: "error", error: errorText(error) } });
   }
 }
 
@@ -292,10 +293,6 @@ export function runExtensionListChoice(choice: string | null, windowId: string) 
   if (choice === "add") openWebStore(windowId);
   if (choice === "manage") openManageExtensions(windowId);
   if (choice === "pin") openPinDialog(windowId);
-}
-
-function message(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
 }
 
 export function extensionMenu(s: BrowserState, windowId: string | undefined) {

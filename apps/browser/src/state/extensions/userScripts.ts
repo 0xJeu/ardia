@@ -11,6 +11,7 @@ import {
 import { useBrowser, type BrowserState } from "../browser/store";
 import { engineProfile, isIncognitoProfile } from "../browser/model";
 import { parseSaved, unchanged, versionedJson, type Migrations } from "../../lib/savedDocument";
+import { errorText } from "../../lib/errors";
 
 export type ScriptsOutcome = { ok: true } | { disabled: true } | { removed: true } | { error: string };
 type Status = { generation: number; profiles: Record<string, ScriptsOutcome> };
@@ -38,8 +39,6 @@ const targetsKey = (targets: Map<string, string[]>) => JSON.stringify([...target
 const withoutPrivate = (path: string) => path.replace(/^\/private(?=\/(tmp|var|etc)\/)/, "");
 const loadedFrom = (ext: InstalledExtension, path: string) => !!ext.path && withoutPrivate(ext.path) === withoutPrivate(path);
 
-const message = (error: unknown) => (error instanceof Error ? error.message : String(error));
-
 const BLOCKED = "Ardia Scripts can only hold content scripts, and the engine blocked this copy.";
 
 async function load(profile: string, path: string): Promise<ScriptsOutcome> {
@@ -57,7 +56,7 @@ async function load(profile: string, path: string): Promise<ScriptsOutcome> {
     if (loaded.blockedByPolicy) return { error: loaded.errors[0] ?? BLOCKED };
     return loaded.state === "DISABLED" ? { disabled: true } : { error: `The extension is ${loaded.state.toLowerCase()}.` };
   } catch (error) {
-    return { error: message(error) };
+    return { error: errorText(error) };
   }
 }
 
@@ -66,7 +65,7 @@ async function unload(profile: string, path: string): Promise<ScriptsOutcome> {
     for (const ext of (await listExtensions(profile)).filter((x) => loadedFrom(x, path))) await uninstallExtension(ext.id, profile);
     return { removed: true };
   } catch (error) {
-    return { error: message(error) };
+    return { error: errorText(error) };
   }
 }
 

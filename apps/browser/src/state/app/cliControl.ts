@@ -19,6 +19,7 @@ import { isTabReady, pageOf, usePages } from "../tabs/pageState";
 import { isInternalTab } from "../pages/urls";
 import { afterFirstWindow } from "../../lib/afterFirstWindow";
 import { parseSaved, unchanged, versionedJson, type Migrations } from "../../lib/savedDocument";
+import { errorText } from "../../lib/errors";
 
 const DOC = "ardia-cli.json";
 const DOC_VERSION = 1;
@@ -99,7 +100,7 @@ export function installCliInBackground(reason: CliInstallReason): Promise<CliIns
     if (step) useCli.setState({ step });
   });
   running = installCli()
-    .catch((e: unknown): CliInstallResult => ({ ok: false, appVersion: "", error: e instanceof Error ? e.message : String(e), lines: [] }))
+    .catch((e: unknown): CliInstallResult => ({ ok: false, appVersion: "", error: errorText(e), lines: [] }))
     .then((result) => {
       lines.remove();
       running = null;
@@ -190,7 +191,7 @@ export function startCliControl() {
       if (request === latest) apply(server, true);
     };
     const call = first && !on ? cliControlStatus() : setCliControl(on);
-    void call.then(settle, (e: unknown) => settle({ state: "off", reason: e instanceof Error ? e.message : String(e) }));
+    void call.then(settle, (e: unknown) => settle({ state: "off", reason: errorText(e) }));
   };
   sync();
   useBrowser.subscribe(() => {
