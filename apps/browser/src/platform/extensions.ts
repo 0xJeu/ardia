@@ -23,6 +23,7 @@ export {
   onExtensionsSync,
   extensionsSyncState,
   applyExtensionsSync,
+  type ExtensionsSyncApply,
   searchEngineList,
   permissionWarnings,
   webStoreExtensionId,

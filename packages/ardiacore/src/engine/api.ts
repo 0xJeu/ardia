@@ -3,7 +3,11 @@ import type { EngineBookmark, BookmarkOp } from "../bookmarks";
 import type { ActionPopupRequest, CastDialog, CastRoute, DeviceChooser, SidePanelRequest } from "../chromeUI";
 import type { CliControlStatus } from "../cliControl";
 import type { ContentBlockerState, ContentBlockerStats } from "../contentBlocker";
-import type { ActionState, ExtensionInstallPrompt, ExtensionPackage, ExtensionsChange, InstalledExtension, TabsRequest } from "../extensions";
+import type {
+  ActionState, ExtensionActionChange, ExtensionInstallPrompt, ExtensionPackage, ExtensionsChange, ExtensionsSyncApplied, ExtensionsSyncApply,
+  ExtensionsSyncState, ExtensionSyncIntent, InstalledExtension, TabsRequest,
+} from "../extensions";
+import type { HistoryChangedBatch, HistoryWireRow } from "../history";
 import type { ExternalAppAllowance } from "../externalApps";
 import type { FaviconImage } from "../favicons";
 import type {
@@ -19,7 +23,6 @@ import type { DisplayMediaSource } from "../pageTypes";
 
 type Profile = { profile: string };
 type Done = Record<string, never> | null;
-type HistoryRow = { u: string; t: string; n: number };
 type VideoUpscalingState = { enabled: boolean; lowPower: boolean; thermalPressure: boolean; appActive: boolean; tabs: { tabId: number; allowed: boolean }[] };
 
 export type EngineCalls = {
@@ -112,8 +115,8 @@ export type EngineCalls = {
   "extensions.actionStates": [{ tabId: string; ids: string[] }, Record<string, ActionState>];
   "extensions.sidePanelUrl": [{ tabId: string; extensionId: string }, string | null];
   "extensions.watchActions": [Profile, Done];
-  "extensions.syncState": [Profile, unknown];
-  "extensions.syncApply": [Profile & Record<string, unknown>, unknown];
+  "extensions.syncState": [Profile, ExtensionsSyncState];
+  "extensions.syncApply": [Profile & ExtensionsSyncApply, ExtensionsSyncApplied];
 
   "search.engines": [Profile, { list: unknown }];
   "search.setEngineName": [{ name: string }, null];
@@ -142,7 +145,7 @@ export type EngineCalls = {
   "contentBlocker.devFailNextMessage": [{}, null];
   "contentBlocker.devDelayNextLoad": [{ ms: number }, null];
 
-  "history.query": [Profile & { maxUrls: number; maxVisits: number }, { entries: (HistoryRow & { v: number[] })[] }];
+  "history.query": [Profile & { maxUrls: number; maxVisits: number }, { entries: (HistoryWireRow & { v: number[] })[] }];
   "history.add": [Profile & { pages: { u: string; t: string; v: number[] }[]; toleranceMs: number }, { added: number }];
   "history.import": [Profile & { rows: { u: string; t: string; n: number; l: number }[] }, Done];
   "history.deleteUrls": [Profile & { urls: string[] }, Done];
@@ -180,8 +183,6 @@ export type EngineCalls = {
   "webKit.requestPasskeyAccess": [{}, PasskeyAccess];
 };
 
-export type EnginePayload = { profile: string } & Record<string, unknown>;
-
 export type EngineEvents = {
   "engine.systemState": SystemState;
   "engine.cliControl": CliControlStatus;
@@ -197,10 +198,10 @@ export type EngineEvents = {
   "extensions.sidePanel": SidePanelRequest;
   "extensions.actionPopup": ActionPopupRequest;
   "extensions.actionShortcut": ActionPopupRequest;
-  "extensions.action": EnginePayload;
-  "extensions.sync": EnginePayload;
-  "history.changed": EnginePayload;
-  "bookmarks.changed": EnginePayload;
+  "extensions.action": ExtensionActionChange;
+  "extensions.sync": { profile: string } & ExtensionSyncIntent;
+  "history.changed": HistoryChangedBatch;
+  "bookmarks.changed": { profile: string };
   "media.deviceChooser": DeviceChooser;
   "media.castDialog": CastDialog;
   "media.castRoutes": { profile: string; routes: CastRoute[] };

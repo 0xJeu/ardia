@@ -89,12 +89,13 @@ export const chromeHistory = (profile = "", device = current.device) => {
 export const historyWatches: string[] = [];
 
 export function chromeHistoryEvent(change: HistoryChange) {
-  const { profile } = change;
-  if (change.kind === "visit")
-    laterEngineEvent("history.changed", { profile, kind: "visit", u: change.url, t: change.title, n: change.visits, at: change.at });
-  else if (change.kind === "modified")
-    laterEngineEvent("history.changed", { profile, kind: "modified", rows: change.rows.map((r) => ({ u: r.url, t: r.title, n: r.visits })) });
-  else laterEngineEvent("history.changed", { profile, kind: "deleted", all: change.all, urls: change.urls });
+  const wire =
+    change.kind === "visit"
+      ? { kind: "visit", u: change.url, t: change.title, n: change.visits, at: change.at }
+      : change.kind === "modified"
+        ? { kind: "modified", rows: change.rows.map((r) => ({ u: r.url, t: r.title, n: r.visits })) }
+        : { kind: "deleted", all: change.all, urls: change.urls };
+  laterEngineEvent("history.changed", { profile: change.profile, kind: "batch", changes: [wire] });
 }
 
 function addVisit(profile: string, url: string, title: string, at: number) {

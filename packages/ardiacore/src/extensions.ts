@@ -163,23 +163,49 @@ export const watchExtensionActions = (profile: string) => call("extensions.watch
 
 export type ExtensionActionChange = { profile: string; id: string; kind: "action" | "sidePanel" | "registry" };
 
-export const extensionActionChange = (p: { profile: string } & Record<string, unknown>): ExtensionActionChange => ({
-  profile: p.profile,
-  id: String(p.id),
-  kind: p.kind === "sidePanel" || p.kind === "registry" ? p.kind : "action",
-});
-
-export const onExtensionActionChanged = (listener: (e: ExtensionActionChange) => void) =>
-  on("extensions.action", (p) => {
-    if (typeof p.id === "string") listener(extensionActionChange(p));
-  });
+export const onExtensionActionChanged = (listener: (e: ExtensionActionChange) => void) => on("extensions.action", listener);
 export const onExtensionInstallPrompt = (listener: (e: ExtensionInstallPrompt) => void) => on("extensions.installPrompt", listener);
 export const onExtensionInstallFailed = (listener: (e: { message: string; tabId: string | null }) => void) => on("extensions.installFailed", listener);
 export const resolveExtensionInstallPrompt = (requestId: string, accepted: boolean) => call("extensions.resolveInstallPrompt", { requestId, accepted });
 export const onExtensionTabsRequest = (listener: (e: TabsRequest) => void) => on("extensions.tabs", listener);
-export const onExtensionsSync = (listener: (p: { profile: string }) => void) => on("extensions.sync", listener);
-export const extensionsSyncState = <T,>(profile: string) => call("extensions.syncState", { profile }) as Promise<T>;
-export const applyExtensionsSync = (profile: string, args: Record<string, unknown>) => call("extensions.syncApply", { ...args, profile });
+export type ExtensionSyncIntent = { id: string; kind: "installed" | "uninstalled" };
+
+export type SyncedExtension =
+  | { id: string; syncable: false }
+  | {
+      id: string;
+      syncable: true;
+      version: string;
+      approved: boolean;
+      fingerprint: string;
+      enabled: boolean;
+      userDisabled: boolean;
+      incognito: boolean;
+      pinned: boolean;
+    };
+
+export type ExtensionsSyncState = {
+  ready: boolean;
+  extensions: SyncedExtension[];
+  pending: string[];
+  settling: string[];
+  queued: string[];
+  intents: ExtensionSyncIntent[];
+};
+
+export type ExtensionsSyncApply = {
+  id: string;
+  record: { on: boolean; inc: boolean; pin: boolean } | { removed: true };
+  approval?: { v: string; fps: string[] };
+};
+
+export type ExtensionsSyncApplied = {
+  state: "invalid" | "kept" | "absent" | "cancelled" | "blocked" | "pending" | "refused" | "updating" | "installed";
+};
+
+export const onExtensionsSync = (listener: (p: { profile: string } & ExtensionSyncIntent) => void) => on("extensions.sync", listener);
+export const extensionsSyncState = (profile: string) => call("extensions.syncState", { profile });
+export const applyExtensionsSync = (profile: string, apply: ExtensionsSyncApply) => call("extensions.syncApply", { ...apply, profile });
 
 export const chooseExtensionFolder = () => call("extensions.chooseFolder");
 

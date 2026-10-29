@@ -1,5 +1,5 @@
 import { useBrowser } from "../browser/store";
-import { applyExtensionsSync, extensionsSyncState, onExtensionsSync } from "../../platform/extensions";
+import { applyExtensionsSync, extensionsSyncState, onExtensionsSync, type ExtensionsSyncApply } from "../../platform/extensions";
 import { readDocument, writeDocument } from "../../platform/documents";
 import { extensionsAdapter, type ExtensionChange, type ExtensionIntent, type ExtensionsAdapter, type LocalExtensions } from "../../platform/sync";
 import { engineProfile } from "../browser/model";
@@ -10,7 +10,6 @@ const DOC_VERSION = 1;
 const DOC_MIGRATIONS: Migrations = { 0: unchanged };
 
 type Intents = { generation: number; profiles: Record<string, Record<string, ExtensionIntent>> };
-type EngineState = LocalExtensions & { intents?: { id: string; kind: ExtensionIntent["kind"] }[] };
 
 let intents: Intents | null = null;
 
@@ -34,9 +33,9 @@ function note(profile: string, id: string, kind: ExtensionIntent["kind"]) {
 }
 
 async function stateOf(profile: string): Promise<LocalExtensions> {
-  const state = await extensionsSyncState<EngineState>(profile);
-  for (const i of state.intents ?? []) note(profile, i.id, i.kind);
-  return { ready: !!state.ready, extensions: state.extensions ?? [], pending: state.pending ?? [], settling: state.settling ?? [], queued: state.queued ?? [] };
+  const { intents, ...state } = await extensionsSyncState(profile);
+  for (const i of intents) note(profile, i.id, i.kind);
+  return state;
 }
 
 async function readLocal(profile: string): Promise<LocalExtensions | null> {
@@ -52,9 +51,10 @@ const changeListeners = new Set<(profile: string) => void>();
 export const onSyncedExtensionChange = (listener: (profile: string) => void) => void changeListeners.add(listener);
 
 async function change(profile: string, c: ExtensionChange): Promise<boolean> {
-  const args = c.kind === "cancel" ? { id: c.id, record: { removed: true } } : { id: c.id, record: c.record, ...(c.approval ? { approval: c.approval } : {}) };
+  const apply: ExtensionsSyncApply =
+    c.kind === "cancel" ? { id: c.id, record: { removed: true } } : { id: c.id, record: c.record, ...(c.approval ? { approval: c.approval } : {}) };
   try {
-    await applyExtensionsSync(profile, args);
+    await applyExtensionsSync(profile, apply);
     return true;
   } catch (error) {
     console.warn(`[sync] extension ${c.kind} ${c.id} failed`, error);
