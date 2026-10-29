@@ -33,7 +33,10 @@ export function startMemorySaver() {
   });
 }
 
-export const keepActiveSiteOf = (typed: string) => typed.trim().replace(/^([a-z][\w+.-]*:\/\/)?([^/]*)\/$/i, "$1$2").toLowerCase();
+export function keepActiveSiteOf(typed: string): string {
+  const [, scheme = "", host = "", rest = ""] = /^([a-z][\w+.-]*:\/\/)?([^/?#]*)(.*)$/is.exec(typed.trim()) ?? [];
+  return `${scheme.toLowerCase()}${host.toLowerCase()}${rest === "/" ? "" : rest}`;
+}
 
 export async function keepSiteActive(typed: string): Promise<string | null> {
   const site = keepActiveSiteOf(typed);
