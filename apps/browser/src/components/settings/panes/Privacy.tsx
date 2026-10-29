@@ -23,7 +23,7 @@ import { useProfiles, useSettings } from "../../../state/browser/hooks";
 import { Button, Checkbox, font, PopUp, Sheet, Toggle, weight } from "../../ui";
 import { Favicon } from "../../favicon/Favicon";
 import { Group, Row, SectionHeader } from "../Form";
-import type { SettingId } from "../settingsIndex";
+import { setting, type SettingId } from "../settingsIndex";
 import { appLinks, contentBlocker, siteOrigins, zoomLevels } from "../../../state/settings/paneData";
 import { useResource } from "../../../state/settings/resources";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
@@ -32,13 +32,13 @@ import { categoryOn, setBlockingCategory, setFilterList } from "../../../state/s
 import { ShareDiagnosticsSection } from "./ShareDiagnostics";
 import { UI_LOCALE } from "../../../lib/uiLocale";
 
-const CATEGORIES: { id: FilterListCategory; toggle: string; section: string; anchor?: SettingId }[] = [
-  { id: "ads", toggle: "Block ads", section: "Ad blockers", anchor: "privacy.blockAds" },
-  { id: "trackers", toggle: "Block trackers", section: "Trackers", anchor: "privacy.blockTrackers" },
-  { id: "cookies", toggle: "Block cookie banners", section: "Cookie banners", anchor: "privacy.blockCookieBanners" },
-  { id: "annoyances", toggle: "", section: "Annoyances" },
-  { id: "security", toggle: "", section: "Malware and scams" },
-  { id: "regional", toggle: "", section: "Regional blockers" },
+const CATEGORIES: { id: FilterListCategory; section: string; anchor?: SettingId }[] = [
+  { id: "ads", section: "Ad blockers", anchor: "privacy.blockAds" },
+  { id: "trackers", section: "Trackers", anchor: "privacy.blockTrackers" },
+  { id: "cookies", section: "Cookie banners", anchor: "privacy.blockCookieBanners" },
+  { id: "annoyances", section: "Annoyances" },
+  { id: "security", section: "Malware and scams" },
+  { id: "regional", section: "Regional blockers" },
 ];
 
 const filtersText = (n: number) => `${n.toLocaleString(UI_LOCALE)} ${n === 1 ? "filter" : "filters"}`;
@@ -79,8 +79,8 @@ export function PrivacyPane() {
     <View>
       <SectionHeader title="Content blocking" description="Built on EasyList and EasyPrivacy. Blocking happens on this Mac." />
       <Group>
-        {CATEGORIES.filter((c) => c.toggle).map((c) => (
-          <Row key={c.id} anchor={c.anchor} title={c.toggle}>
+        {CATEGORIES.filter((c) => c.anchor).map((c) => (
+          <Row key={c.id} anchor={c.anchor}>
             <Toggle value={!!blocker && categoryOn(blocker, c.id)} disabled={!blocker} onChange={(v) => void toggleCategory(c.id, v)} />
           </Row>
         ))}
@@ -138,7 +138,7 @@ function FilterListsSheet() {
   return (
     <Sheet width={500} onClose={closeSettingsSheet}>
       <Text style={{ ...font.heading, fontWeight: weight.semibold, color: theme.textPrimary }}>Advanced Ad Block Settings</Text>
-      <Text style={{ ...font.small, marginTop: 4, color: theme.textSecondary }}>Block common components found across the web by using additional rules and filters.</Text>
+      <Text style={{ ...font.small, marginTop: 4, color: theme.textSecondary }}>{setting("privacy.filterLists").description}</Text>
       <ScrollView style={{ maxHeight: 420, marginTop: 8 }}>
         {CATEGORIES.map((c) => {
           const lists = blocker?.lists.filter((l) => l.category === c.id) ?? [];
@@ -235,7 +235,6 @@ function SitePermissions() {
     <>
       <SectionHeader
         anchor="privacy.sitePermissions"
-        description="Pop-ups, camera, location and other permissions you've set for sites."
         action={
           profiles.length > 1 ? (
             <PopUp value={profileId} options={profiles.map((p) => ({ value: p.id, title: p.name }))} onChange={setProfileId} />
@@ -273,7 +272,6 @@ function AppLinks() {
     <>
       <SectionHeader
         anchor="privacy.appLinks"
-        description="Sites that open another app without asking first."
         action={
           profiles.length > 1 ? (
             <PopUp value={profileId} options={profiles.map((p) => ({ value: p.id, title: p.name }))} onChange={setProfileId} />

@@ -9,7 +9,7 @@ import { addCustomEngine, removeCustomEngine, setSearchEngine, updateCustomEngin
 import { controllingSearchExtension, defaultSearchEngine, searchEngines } from "../../../state/settings/settings";
 import { extensionsProfileId, setEnabled } from "../../../state/extensions/actions";
 import { Favicon } from "../../favicon/Favicon";
-import { Group, Row, SectionHeader } from "../Form";
+import { Group, Row, SectionHeader, SettingToggle } from "../Form";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 import { openSettings } from "../../../state/settings/settingsWindows";
 
@@ -19,19 +19,19 @@ function manageExtensionsOf(profile: string) {
 }
 
 export function SearchPane() {
-  const settings = useSettings((s) => s);
+  const engines = useSettings(searchEngines);
+  const selectedId = useSettings((s) => defaultSearchEngine(s).id);
+  const controlling = useSettings(controllingSearchExtension);
+  const suggestions = useSettings((s) => s.searchSuggestions);
   const theme = useTheme();
-  const engines = searchEngines(settings);
   const builtIn = engines.filter((e) => !e.custom && !e.extension);
   const custom = engines.filter((e) => e.custom);
   const fromExtensions = engines.filter((e) => e.extension);
-  const selectedId = defaultSearchEngine(settings).id;
-  const controlling = controllingSearchExtension(settings);
   const locked = !!controlling;
 
   return (
     <View>
-      <SectionHeader anchor="search.defaultEngine" description="Used by the command bar and the New Tab page." />
+      <SectionHeader anchor="search.defaultEngine" />
       <Group>
         {controlling && (
           <Row
@@ -50,7 +50,6 @@ export function SearchPane() {
 
       <SectionHeader
         anchor="search.otherEngines"
-        description="Type a shortcut and press Tab in the command bar to search a site directly."
         action={<Button title="Add…" icon="plus" onPress={() => showSettingsSheet(<EngineSheet />)} />}
       />
       <Group of="search.otherEngines">
@@ -75,15 +74,13 @@ export function SearchPane() {
       <SectionHeader title="Suggestions" />
       <Group>
         <Row anchor="search.suggestions">
-          <Toggle value={settings.searchSuggestions} onChange={(v) => updateSettings({ searchSuggestions: v })} />
+          <Toggle value={suggestions} onChange={(v) => updateSettings({ searchSuggestions: v })} />
         </Row>
       </Group>
 
       <SectionHeader title="Text selection" />
       <Group>
-        <Row anchor="search.showSelectionSearch">
-          <Toggle value={settings.showSelectionSearch} onChange={(v) => updateSettings({ showSelectionSearch: v })} />
-        </Row>
+        <SettingToggle anchor="search.showSelectionSearch" />
       </Group>
     </View>
   );

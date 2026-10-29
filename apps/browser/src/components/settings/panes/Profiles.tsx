@@ -68,7 +68,6 @@ export function ProfilesPane() {
 
       <SectionHeader
         anchor="profiles.list"
-        description="Drag to reorder. ⌃1–⌃9 switch to the first nine."
         action={<Button title="Create Profile" icon="plus" onPress={() => void createProfile()} />}
       />
       <ProfileList />

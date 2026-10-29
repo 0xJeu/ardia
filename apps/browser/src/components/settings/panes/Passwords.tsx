@@ -93,10 +93,10 @@ export function PasswordsPane({ profileId: initial }: { profileId?: string | nul
         <Row anchor="passwords.offerToSave">
           <Toggle value={autofill} onChange={(v) => void setPasswordAutofill(v, profile).then(() => store(passwordAutofill, [profile], v))} />
         </Row>
-        <Row anchor="passwords.importPasswords" description={importStatus || "From a CSV exported by Chrome, Safari, Firefox, 1Password, Bitwarden…"}>
+        <Row anchor="passwords.importPasswords" description={importStatus || undefined}>
           <Button title="Import CSV…" onPress={() => void importCsv()} />
         </Row>
-        <Row anchor="passwords.exportPasswords" description={exportStatus || "To a CSV file. Anyone who can open the file can read your passwords."}>
+        <Row anchor="passwords.exportPasswords" description={exportStatus || undefined}>
           <Button title="Export CSV…" onPress={() => void exportCsv()} />
         </Row>
         <Row anchor="passwords.managerApps" description={passwordManagerAppsNote()} />

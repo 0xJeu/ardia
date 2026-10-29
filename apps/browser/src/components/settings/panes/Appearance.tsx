@@ -28,7 +28,7 @@ export function AppearancePane() {
   };
   return (
     <View>
-      <SectionHeader anchor="appearance.theme" description="Also in View › Appearance. Incognito windows are always dark." />
+      <SectionHeader anchor="appearance.theme" />
       <View style={{ flexDirection: "row", gap: 14 }}>
         {MODES.map((m) => (
           <ModeChoice key={m.value} mode={m.value} title={m.title} description={m.description} selected={appearance === m.value} onPress={() => choose(m.value)} />
@@ -168,7 +168,7 @@ function AppIconPicker() {
   };
   return (
     <>
-      <SectionHeader anchor="appearance.appIcon" description="Shown in the Dock and the app switcher. The Dock keeps it after you quit." />
+      <SectionHeader anchor="appearance.appIcon" />
       <View style={{ flexDirection: "row", flexWrap: "wrap", columnGap: 6, rowGap: 10 }}>
         {icons.map((icon) => (
           <IconChoice key={icon.id} icon={icon} selected={icon.id === current} onPress={() => choose(icon.id)} />

@@ -17,7 +17,7 @@ import { updateSettings } from "../../../state/settings/actions";
 import { currentEngineProfile, currentSettings } from "../../../state/browser/current";
 import { useProfiles, useSettings } from "../../../state/browser/hooks";
 import { SHARING_COPY } from "../../../state/telemetry/copy";
-import { Anchor, Group, Row, SectionHeader } from "../Form";
+import { Anchor, Group, Row, SectionHeader, SettingToggle } from "../Form";
 import { defaultBrowser, downloadSettings, loginItem, updater } from "../../../state/settings/paneData";
 import { store, useResource } from "../../../state/settings/resources";
 import { openImport } from "../../../state/settings/settingsWindows";
@@ -28,8 +28,9 @@ import { UI_LOCALE } from "../../../lib/uiLocale";
 const APP = "Ardia";
 
 export function GeneralPane() {
-  const settings = useSettings((s) => s);
-  const update = updateSettings;
+  const openLinksInLittleArdia = useSettings((s) => s.openLinksInLittleArdia);
+  const restoreSession = useSettings((s) => s.restoreSession);
+  const commandBarPreference = useSettings((s) => s.commandBarPreference);
   const [loginStatus = "notRegistered", refreshLogin] = useResource(loginItem);
 
   return (
@@ -47,27 +48,23 @@ export function GeneralPane() {
             onChange={(on) => void setLaunchAtLogin(on).catch(() => {}).finally(refreshLogin)}
           />
         </Row>
-        <Row anchor="general.warnBeforeQuitting">
-          <Toggle value={settings.warnBeforeQuitting} onChange={(v) => update({ warnBeforeQuitting: v })} />
-        </Row>
-        <Row anchor="general.warnBeforeClosingWindow">
-          <Toggle value={settings.warnBeforeClosingWindow} onChange={(v) => update({ warnBeforeClosingWindow: v })} />
-        </Row>
+        <SettingToggle anchor="general.warnBeforeQuitting" />
+        <SettingToggle anchor="general.warnBeforeClosingWindow" />
         <Row
           anchor="general.openLinksFrom"
           description={
-            settings.openLinksInLittleArdia
+            openLinksInLittleArdia
               ? `A link from Discord, Slack or Mail opens in Little Ardia, a small window of its own. ⌘O moves it into ${APP}; closing it throws it away.`
               : `A link from Discord, Slack or Mail opens as a new tab in the ${APP} window you used last.`
           }
         >
           <PopUp
-            value={settings.openLinksInLittleArdia ? "small" : "tab"}
+            value={openLinksInLittleArdia ? "small" : "tab"}
             options={[
               { value: "small", title: "Little Ardia" },
               { value: "tab", title: "A new tab" },
             ]}
-            onChange={(v) => update({ openLinksInLittleArdia: v === "small" })}
+            onChange={(v) => updateSettings({ openLinksInLittleArdia: v === "small" })}
             minWidth={190}
           />
         </Row>
@@ -77,12 +74,12 @@ export function GeneralPane() {
       <Group>
         <Row anchor="general.windowsAndTabs">
           <PopUp
-            value={settings.restoreSession ? "keep" : "close"}
+            value={restoreSession ? "keep" : "close"}
             options={[
               { value: "keep", title: "Preserve tabs and windows" },
               { value: "close", title: "Start fresh" },
             ]}
-            onChange={(v) => update({ restoreSession: v === "keep" })}
+            onChange={(v) => updateSettings({ restoreSession: v === "keep" })}
             minWidth={190}
           />
         </Row>
@@ -92,12 +89,12 @@ export function GeneralPane() {
       <Group>
         <Row anchor="general.commandBarPreference">
           <PopUp
-            value={settings.commandBarPreference}
+            value={commandBarPreference}
             options={[
               { value: "website", title: "Use Website First" },
               { value: "search", title: "Prefer Search Engine" },
             ]}
-            onChange={(v) => update({ commandBarPreference: v })}
+            onChange={(v) => updateSettings({ commandBarPreference: v })}
             minWidth={190}
           />
         </Row>

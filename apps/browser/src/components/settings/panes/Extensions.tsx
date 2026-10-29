@@ -66,7 +66,6 @@ export function ExtensionsPane({ profileId: chosen, detail }: { profileId: strin
     <View>
       <SectionHeader
         anchor="extensions.installed"
-        description="Add features to Ardia with extensions from the Chrome Web Store. Each profile has its own."
         action={
           profiles.length > 1 ? (
             <PopUp value={profileId} options={profiles.map((p) => ({ value: p.id, title: p.name }))} onChange={(id) => replaceSettingsPlace(id)} />
