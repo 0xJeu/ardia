@@ -1,4 +1,3 @@
-import { useBrowser } from "../../../state/browser/store";
 import {
   cardNetworkName,
   deleteAddress,
@@ -16,9 +15,8 @@ import { Symbol, Button, font, type Option, PopUp, Sheet, TextField, Toggle, wei
 import { useState } from "react";
 import { Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
-import { currentSettings } from "../../../state/browser/current";
+import { currentEngineProfile, currentSettings } from "../../../state/browser/current";
 import { useProfiles } from "../../../state/browser/hooks";
-import { engineProfile } from "../../../state/browser/model";
 import { Group, Row, SectionHeader } from "../Form";
 import { NetworkBadge } from "../../site/Autofill";
 import { addresses as addressList, autofillEnabled, cards as cardList } from "../../../state/settings/paneData";
@@ -29,7 +27,7 @@ export function AutofillPane({ profileId: initial }: { profileId?: string | null
   const theme = useTheme();
   const profiles = useProfiles();
   const [profileId, setProfileId] = useState(() => initial ?? currentSettings().defaultProfileId);
-  const profile = engineProfile(useBrowser.getState(), profileId);
+  const profile = currentEngineProfile(profileId);
   const [addresses, reloadAddresses] = useResource(addressList, profile);
   const [cards, reloadCards] = useResource(cardList, profile);
   const [enabled] = useResource(autofillEnabled, profile);

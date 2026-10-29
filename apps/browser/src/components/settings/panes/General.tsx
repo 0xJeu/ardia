@@ -1,4 +1,3 @@
-import { useBrowser } from "../../../state/browser/store";
 import { setDownloadSettings, type DownloadSettings } from "../../../state/downloads/actions";
 import {
   checkForUpdates,
@@ -15,9 +14,8 @@ import { useEffect, useState } from "react";
 import { AppState, Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
 import { updateSettings } from "../../../state/settings/actions";
-import { currentSettings } from "../../../state/browser/current";
+import { currentEngineProfile, currentSettings } from "../../../state/browser/current";
 import { useProfiles, useSettings } from "../../../state/browser/hooks";
-import { engineProfile } from "../../../state/browser/model";
 import { SHARING_COPY } from "../../../state/telemetry/copy";
 import { Anchor, Group, Row, SectionHeader } from "../Form";
 import { defaultBrowser, downloadSettings, loginItem, updater } from "../../../state/settings/paneData";
@@ -126,9 +124,9 @@ const homeRelative = (path: string) => path.replace(/^\/Users\/[^/]+(?=\/|$)/, "
 function DownloadsSection() {
   const profiles = useProfiles();
   const [profileId, setProfileId] = useState(() => currentSettings().defaultProfileId);
-  const profile = engineProfile(useBrowser.getState(), profileId);
+  const profile = currentEngineProfile(profileId);
   const [current] = useResource(downloadSettings, profile);
-  const others = [...new Set(profiles.map((p) => engineProfile(useBrowser.getState(), p.id)))].filter((p) => p !== profile);
+  const others = [...new Set(profiles.map((p) => currentEngineProfile(p.id)))].filter((p) => p !== profile);
   const apply = (patch: Partial<Pick<DownloadSettings, "folder" | "askWhereToSave">>, targets = [profile]) =>
     void Promise.all(targets.map((p) => setDownloadSettings(patch, p).then((next) => store(downloadSettings, [p], next), () => {})));
   const change = async () => {

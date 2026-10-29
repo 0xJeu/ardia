@@ -1,4 +1,3 @@
-import { useBrowser } from "../../../state/browser/store";
 import {
   reloadExtension,
   addFromWebStore,
@@ -17,10 +16,9 @@ import type { InstalledExtension } from "../../../state/extensions/store";
 import { useEffect, useState } from "react";
 import { Image, Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
-import { resolvedWindowId } from "../../../state/browser/current";
+import { currentEngineProfile, resolvedWindowId } from "../../../state/browser/current";
 import { newTab } from "../../../state/tabs/actions";
 import { useProfiles } from "../../../state/browser/hooks";
-import { engineProfile } from "../../../state/browser/model";
 import { InstallDialogHost } from "../../extensions/ExtensionOverlays";
 import { Button, font, PopUp, TextField, Toggle, weight } from "../../ui";
 import { Group, Row, SectionHeader } from "../Form";
@@ -43,7 +41,7 @@ export function ExtensionsPane({ profileId: chosen, detail }: { profileId: strin
   const theme = useTheme();
   const profiles = useProfiles();
   const [profileId] = useState(() => extensionsProfileId(chosen));
-  const profile = engineProfile(useBrowser.getState(), profileId);
+  const profile = currentEngineProfile(profileId);
   const list = useExtensionList(profile);
   const [link, setLink] = useState("");
   const [loaded] = useResource(extensionList, profile);

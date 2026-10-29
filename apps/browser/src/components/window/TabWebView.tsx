@@ -1,4 +1,3 @@
-import { useBrowser } from "../../state/browser/store";
 import { WebView } from "../ui";
 import { type OpenWindowRequest, openFromPage } from "../../state/tabs/openFromPage";
 import type { PageEngine } from "../../state/engines/engines";
@@ -16,13 +15,13 @@ import { handOff, takeHandOff, wantsPage } from "../../state/tabs/tabPages";
 import { noteDiscarded, noteGone, noteReady } from "../../state/tabs/tabLifecycle";
 import { clearEngineOffer, followSiteChoice, noteWebKitPage, offerWebKit, persistEngine } from "../../state/engines/actions";
 import { noteIssued, takeStartedNavigation, webviewRef, webviews } from "../../state/tabs/webviewHandles";
-import { currentTab, isTabSilenced } from "../../state/browser/current";
+import { currentEngineProfile, currentTab, isTabSilenced } from "../../state/browser/current";
 import { closeTabNow, faviconChanged, navigated, updateLive, updateTab } from "../../state/tabs/actions";
 import { setFind } from "../../state/windows/actions";
 import { activateFocusedPane, currentTabEngine, downloadNavigated, useTabEngine } from "../../state/windows/card";
 import { setPageProgress } from "../../state/tabs/pageProgress";
 import { shallowEqual, useBrowserWhile, useProfilesValue, useTabValue } from "../../state/tabs/tabWatch";
-import { engineProfile, isIncognitoProfile, navigationTo } from "../../state/browser/model";
+import { isIncognitoProfile, navigationTo } from "../../state/browser/model";
 import type { Tab } from "../../state/browser/types";
 import { dismissPermissions } from "../../state/site/permissions";
 import { zoomChangedByUser } from "../../state/site/zoomBubble";
@@ -99,7 +98,7 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
     () => () => {
       const t = tab();
       const sameEngine = currentTabEngine(tabId) === engine;
-      if (wantsPage(t) && sameEngine && engineProfile(useBrowser.getState(), t.profileId) === engineProfile(useBrowser.getState(), mountedProfile.current) && !isQuitting()) handOff(tabId, engineProfile(useBrowser.getState(), t.profileId), engine);
+      if (wantsPage(t) && sameEngine && currentEngineProfile(t.profileId) === currentEngineProfile(mountedProfile.current) && !isQuitting()) handOff(tabId, currentEngineProfile(t.profileId), engine);
       else setPageProgress(tabId, 0);
     },
     [],
@@ -118,7 +117,7 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
       engine={engine}
       style={StyleSheet.absoluteFill}
       url={navigation?.url ?? (adoptId ? tab()?.url : undefined)}
-      profile={engineProfile(useBrowser.getState(), profileId)}
+      profile={currentEngineProfile(profileId)}
       adoptId={adoptId}
       tabId={tabId}
       temporary={peekOf !== undefined}
@@ -218,7 +217,7 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
       onPopupBlocked={(popup) => {
         const first = !pageOf(tabId).popups.length;
         patchPage(tabId, { popups: [...pageOf(tabId).popups, popup] });
-        if (first) void shouldPromptForPopups(engineProfile(useBrowser.getState(), profileId), popup.origin).then((ask) => ask && setPopover(tabId, "popups"));
+        if (first) void shouldPromptForPopups(currentEngineProfile(profileId), popup.origin).then((ask) => ask && setPopover(tabId, "popups"));
       }}
       onPasswordPrompt={(prompt) => showPasswordPrompt(tabId, prompt)}
       onAutofillPrompt={(prompt, id) => showAutofillPrompt(tabId, prompt, id)}

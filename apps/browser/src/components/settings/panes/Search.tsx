@@ -1,13 +1,11 @@
-import { useBrowser } from "../../../state/browser/store";
 import { engineHost, type SearchEngine } from "@ardia/core";
 import { Symbol, Button, font, Sheet, TextField, Toggle, weight } from "../../ui";
 import { useState } from "react";
 import { Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
 import { useSettings } from "../../../state/browser/hooks";
-import { currentProfileOrder } from "../../../state/browser/current";
+import { currentEngineProfile, currentProfileOrder } from "../../../state/browser/current";
 import { addCustomEngine, removeCustomEngine, setSearchEngine, updateCustomEngine, updateSettings } from "../../../state/settings/actions";
-import { engineProfile } from "../../../state/browser/model";
 import { controllingSearchExtension, defaultSearchEngine, searchEngines } from "../../../state/settings/settings";
 import { extensionsProfileId, setEnabled } from "../../../state/extensions/actions";
 import { Favicon } from "../../favicon/Favicon";
@@ -16,7 +14,7 @@ import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/s
 import { openSettings } from "../../../state/settings/settingsWindows";
 
 function manageExtensionsOf(profile: string) {
-  const profileId = currentProfileOrder().find((id) => engineProfile(useBrowser.getState(), id) === profile);
+  const profileId = currentProfileOrder().find((id) => currentEngineProfile(id) === profile);
   openSettings("extensions", extensionsProfileId(profileId));
 }
 

@@ -1,4 +1,3 @@
-import { useBrowser } from "../../../state/browser/store";
 import {
   deletePassword,
   exportPasswords,
@@ -17,9 +16,9 @@ import { Symbol, Button, font, PopUp, SearchField, Sheet, TextField, Toggle, wei
 import { useEffect, useState } from "react";
 import { Text, View } from "react-native";
 import { useTheme } from "../../ui/theme";
-import { currentSettings } from "../../../state/browser/current";
+import { currentEngineProfile, currentSettings } from "../../../state/browser/current";
 import { useProfiles } from "../../../state/browser/hooks";
-import { engineProfile, plural } from "../../../state/browser/model";
+import { plural } from "../../../state/browser/model";
 import { importPasswordsCsv, unlockPasswordsFor, usePasswordsUnlocked } from "../../../state/site/savedPasswords";
 import { hostLabel, matchesQuery } from "../../pages/PageLayout";
 import { Favicon } from "../../favicon/Favicon";
@@ -44,7 +43,7 @@ export function PasswordsPane({ profileId: initial }: { profileId?: string | nul
   const [query, setQuery] = useState("");
   const [importStatus, setImportStatus] = useState("");
   const [exportStatus, setExportStatus] = useState("");
-  const profile = engineProfile(useBrowser.getState(), profileId);
+  const profile = currentEngineProfile(profileId);
   const unlocked = usePasswordsUnlocked(profile);
   const [autofill = true] = useResource(passwordAutofill, profile);
 
