@@ -21,7 +21,8 @@ import { AutoHideBackdrop, AutoHideToolbar, useToolbarMode, useToolbarMotion } f
 import { publishPaneChrome } from "../toolbar/WindowToolbar";
 import { revealToolbar } from "../../state/windows/toolbarAutoHide";
 import { useToolbarRow } from "../toolbar/useToolbarRow";
-import { pageKey, TabWebView } from "./TabWebView";
+import { TabWebView } from "./TabWebView";
+import { withoutFragment } from "../../lib/url";
 import { PageOverlays } from "./PageOverlays";
 import { useProfileTheme } from "./ThemeScope";
 
@@ -93,7 +94,7 @@ export const TabPane = memo(function TabPane({
   const mode = useToolbarMode(tabId, windowId, hideBar);
   const bookmarksBar = bookmarksBarShown(barMode, own.exists ? own : undefined) && !fullscreen && !inSplit && !small;
   const barHeight = useBookmarksBarHeight();
-  const doc = pageKey(own.url);
+  const doc = withoutFragment(own.url);
   const autoLayout = autoHide && toolbar && !fullscreen;
   const motion = useToolbarMotion({ enabled: autoLayout, mode, height: frame.height, extra: bookmarksBar ? barHeight : 0, doc });
   useEffect(() => {

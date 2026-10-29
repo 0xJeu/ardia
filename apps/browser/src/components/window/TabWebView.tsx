@@ -36,12 +36,12 @@ import { noteScroll, revealToolbar } from "../../state/windows/toolbarAutoHide";
 import { closeWebNotification, showWebNotification } from "../../state/site/webNotifications";
 import { closeLittleArdiaOnEscape } from "../../state/littleArdia/actions";
 import { closePeekOnEscape } from "../../state/peek/actions";
+import { withoutFragment } from "../../lib/url";
+import { hostOf } from "@ardia/core";
 
 const webViewTab = (t: Tab | undefined) => ({ navigation: t?.navigation, adoptId: t?.adoptId, profileId: t?.profileId ?? "", shownUrl: t?.url ?? "" });
 
 const isBlank = (url: string) => !url || url === "about:blank";
-export const pageKey = (url: string) => url.replace(/#.*$/, "");
-const hostOf = (url: string) => url.match(/^[a-z][\w+.-]*:\/\/([^/?#]*)/i)?.[1]?.toLowerCase() ?? "";
 
 type TabWebViewProps = { tabId: string; visible: boolean; warm: boolean; peekOf?: string };
 
@@ -164,7 +164,7 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
         navigated(tabId, { url, title }, { isLoading, canGoBack, canGoForward, themeColor: shownTheme });
         dropOutlivedFavicon(tabId, url, isLoading);
         if (engine === "webkit") noteWebKitPage(tabId, { url, title, isLoading, committedUrl: committedUrl ?? "" });
-        if (lastPage.current !== null && pageKey(url) !== lastPage.current) {
+        if (lastPage.current !== null && withoutFragment(url) !== lastPage.current) {
           if (pageOf(tabId).externalApp && hostOf(url) !== hostOf(lastPage.current)) answerExternalApp(tabId, false);
           dismissPermissions(tabId);
           setPopover(tabId, null);
@@ -174,7 +174,7 @@ function EngineWebView({ tabId, visible, warm, peekOf, engine }: TabWebViewProps
           revealToolbar(tabId);
           if (peekOf === undefined) followSiteChoice(tabId, engine, url, lastPage.current);
         }
-        lastPage.current = pageKey(url);
+        lastPage.current = withoutFragment(url);
         patchPage(tabId, { themeColorSource: themeColorSource ?? null });
       }}
       onLoadError={() => {

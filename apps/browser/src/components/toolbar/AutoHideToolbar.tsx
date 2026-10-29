@@ -1,7 +1,7 @@
-import { breadcrumb } from "@ardia/core";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { AccessibilityInfo, Animated, Pressable, StyleSheet, Text, View, type ViewStyle } from "react-native";
 import { useTheme } from "../ui/theme";
+import { pageHostLabel } from "../../lib/url";
 import { useSettings, useTab, useTabLive } from "../../state/browser/hooks";
 import { useBrowserWhile, useStoreWhile } from "../../state/tabs/tabWatch";
 import type { ToolbarGeometry } from "../window/geometry";
@@ -227,7 +227,7 @@ export function AutoHideToolbar({
       },
     [moved, bar, fade, H],
   );
-  const host = url.startsWith("file:") ? "File" : breadcrumb(url).host;
+  const host = pageHostLabel(url);
 
   return (
     <View pointerEvents="box-none" style={{ position: "absolute", left: 0, right: 0, top: 0, height: H }}>

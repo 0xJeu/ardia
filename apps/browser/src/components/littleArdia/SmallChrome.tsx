@@ -1,8 +1,8 @@
-import { breadcrumb } from "@ardia/core";
 import { FadeLabel, Symbol, Button, Text, useHover } from "../ui";
 import { useEffect, useRef, type ReactNode } from "react";
 import { Animated, Pressable, View } from "react-native";
 import { layout, useTheme } from "../ui/theme";
+import { pageHostLabel } from "../../lib/url";
 import { useTabLive } from "../../state/browser/hooks";
 import { usePageProgress } from "../../state/tabs/pageProgress";
 import type { Tab } from "../../state/browser/types";
@@ -86,8 +86,7 @@ export function PageLabel({ tab, hovered = false, label }: { tab: Tab; hovered?:
   const live = useTabLive(tab.id);
   const progress = usePageProgress(tab.id);
   const insecure = usePage(tab.id, (p) => !!p.security && (p.security.level === "insecure" || p.security.level === "certificateError")) && !!tab.url;
-  const isFile = tab.url.startsWith("file:");
-  const host = !tab.url ? "" : isFile ? "File" : breadcrumb(tab.url).host;
+  const host = tab.url ? pageHostLabel(tab.url) : "";
   const title = tab.customTitle || tab.title;
 
   return (

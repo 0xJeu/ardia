@@ -1,6 +1,12 @@
-import { hostOf } from "@ardia/core";
+import { breadcrumb, displayHost, hostOf } from "@ardia/core";
+
+export const withoutFragment = (url: string) => url.replace(/#.*$/, "");
 
 export const isWebPageUrl = (url: string) => /^(https?|file):/i.test(url);
+
+export const displayHostOf = (url: string) => displayHost(hostOf(url));
+
+export const pageHostLabel = (url: string) => (url.startsWith("file:") ? "File" : breadcrumb(url).host);
 
 export const hostOrOrigin = (origin: string) => hostOf(origin) || origin;
 

@@ -13,7 +13,7 @@ import {
   type SpaceSuggestion,
 } from "../../platform/importModule";
 import { addGroupsFromDrafts } from "../bookmarks/bookmarkGroups";
-import { adoptFavicons, pageKey as faviconPage } from "../favicons/favicons";
+import { adoptFavicons } from "../favicons/favicons";
 import type { BookmarkDraft } from "../bookmarks/bookmarks";
 import type { GroupDraft } from "../groups/draftGroups";
 import { useBrowser } from "../browser/store";
@@ -26,8 +26,7 @@ import { parseArcTheme } from "./arcTheme";
 import { newProfileLiveFolder } from "../live/engine";
 import { live } from "../live/store";
 import type { LiveSourceId } from "../live/types";
-import { isWebPageUrl } from "../../lib/url";
-import { isWebPageUrl } from "../../lib/url";
+import { isWebPageUrl, withoutFragment } from "../../lib/url";
 
 export type { BrowserProfile, BrowserSource, DiaTabsResult, ImportedExtension, ImportKind, ImportResult, SpaceSummary } from "../../platform/importModule";
 
@@ -66,8 +65,8 @@ const linksOf = (nodes: ImportedNode[]): string[] => nodes.flatMap((n) => (n.typ
 
 function importFavicons(profileId: string, favicons: ImportedFavicon[] | undefined, urls: string[]) {
   if (!favicons?.length || !urls.length) return;
-  const wanted = new Set(urls.map(faviconPage));
-  adoptFavicons(profileId, favicons.filter((f) => wanted.has(faviconPage(f.page))));
+  const wanted = new Set(urls.map(withoutFragment));
+  adoptFavicons(profileId, favicons.filter((f) => wanted.has(withoutFragment(f.page))));
 }
 
 const linkCount = (nodes: ImportedNode[]): number => nodes.reduce((n, c) => n + (c.type === "url" ? 1 : linkCount(c.children ?? [])), 0);
