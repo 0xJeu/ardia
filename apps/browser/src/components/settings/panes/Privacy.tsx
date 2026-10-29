@@ -5,12 +5,9 @@ import {
   removeExternalAppAllowance,
   resetSiteSettings,
   setContentBlockerAllowed,
-  setContentBlockerEnabled,
-  setFilterListEnabled,
   setSiteSetting,
   setZoom,
   type ClearSiteDataResult,
-  type ContentBlockerState,
   type FilterList,
   type FilterListCategory,
   type SiteSettings,
@@ -31,6 +28,7 @@ import { appLinks, contentBlocker, siteOrigins, zoomLevels } from "../../../stat
 import { useResource } from "../../../state/settings/resources";
 import { closeSettingsSheet, showSettingsSheet } from "../../../state/settings/sheet";
 import { updateSettings } from "../../../state/settings/actions";
+import { categoryOn, setBlockingCategory, setFilterList } from "../../../state/site/contentBlocking";
 import { ShareDiagnosticsSection } from "./ShareDiagnostics";
 import { UI_LOCALE } from "../../../lib/uiLocale";
 
@@ -55,17 +53,6 @@ function useContentBlocker() {
   return [state ?? null, refresh] as const;
 }
 
-const categoryOn = (s: ContentBlockerState, c: FilterListCategory) => s.enabled && s.lists.some((l) => l.category === c && l.enabled);
-
-async function setCategory(s: ContentBlockerState, c: FilterListCategory, on: boolean) {
-  const lists = s.lists.filter((l) => l.category === c);
-  const usual = lists.filter((l) => l.defaultOn || l.enabled);
-  const starters = usual.length ? usual : lists.filter((l) => /easylist|fanboy/.test(l.id));
-  for (const l of on ? (starters.length ? starters : lists) : lists.filter((l) => l.enabled)) await setFilterListEnabled(l.id, on);
-  const anyOn = CATEGORIES.some((x) => (x.id === c ? on : categoryOn(s, x.id)));
-  if (anyOn !== s.enabled) await setContentBlockerEnabled(anyOn);
-}
-
 export function PrivacyPane() {
   const theme = useTheme();
   const [blocker, refresh] = useContentBlocker();
@@ -82,7 +69,7 @@ export function PrivacyPane() {
       if (!confirmed) return refresh();
     }
     try {
-      await setCategory(blocker, c, on);
+      await setBlockingCategory(blocker, c, on);
     } finally {
       refresh();
     }
@@ -141,9 +128,9 @@ function FilterListsSheet() {
   const theme = useTheme();
   const [blocker, refresh] = useContentBlocker();
   const toggle = async (l: FilterList, on: boolean) => {
+    if (!blocker) return;
     try {
-      await setFilterListEnabled(l.id, on);
-      if (on && blocker && !blocker.enabled) await setContentBlockerEnabled(true);
+      await setFilterList(blocker, l.id, on);
     } finally {
       refresh();
     }
